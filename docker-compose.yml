@@ -1,7 +1,10 @@
-version: '2'
+version: '3'
 services:
  transmission:
   image: haugene/transmission-openvpn
+  build:
+    context: .
+    dockerfile: Dockerfile
   cap_add:
     - NET_ADMIN
   devices:
