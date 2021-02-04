@@ -1,3 +1,12 @@
+# Build Flood UI seperately to keep image size small
+FROM node:15.8.0-alpine3.12 AS FloodUIBuilder
+WORKDIR /tmp/flood
+
+RUN echo "Build Flood UI" \
+    && wget -qO- https://github.com/johman10/flood-for-transmission/archive/master.tar.gz | tar xz -C . --strip=1 \
+    && npm ci \
+    && npm run build
+
 FROM alpine:3.13
 
 VOLUME /data
