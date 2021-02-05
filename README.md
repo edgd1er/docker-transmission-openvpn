@@ -1,8 +1,13 @@
 # OpenVPN and Transmission with WebUI
 
-[![CircleCI builds](https://img.shields.io/circleci/build/github/haugene/docker-transmission-openvpn)](https://circleci.com/gh/haugene/docker-transmission-openvpn)
-[![Docker Pulls](https://img.shields.io/docker/pulls/haugene/transmission-openvpn.svg)](https://hub.docker.com/r/haugene/transmission-openvpn/)
+![Docker CI buildx armhf+amd64](https://github.com/edgd1er/docker-transmission-openvpn/workflows/Docker%20CI%20buildx%20armhf+amd64/badge.svg)
+[![Docker Pulls](https://img.shields.io/docker/pulls/edgd1er/transmission-openvpn.svg)](https://hub.docker.com/r/haugene/transmission-openvpn/)
 [![Join the chat at https://gitter.im/docker-transmission-openvpn/Lobby](https://badges.gitter.im/docker-transmission-openvpn/Lobby.svg)](https://gitter.im/docker-transmission-openvpn/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
+
+this fork of [haugene](https://github.com/haugene/docker-transmission-openvpn) has very few changes from the original. the main purpose is to test ahead of time some changes.
+
+--------------------------------------------------------------------------------
 
 This container contains OpenVPN and Transmission with a configuration
 where Transmission is running only when OpenVPN has an active tunnel.

@@ -6,15 +6,14 @@ DKRFILE=${localDir}/Dockerfile
 ARCHI=$(dpkg --print-architecture)
 IMAGE=docker-transmission-openvpn
 DUSER=docker_login
-DUSER=edgd1er
-isMultiArch=[[ $("${ARCHI}" != "armhf" ]] && (docker buildx ls | grep -c arm))
+[[ "${ARCHI}" != "armhf" ]] && isMultiArch=$(docker buildx ls | grep -c arm)
 aptCacher=$(ip route get 1 | awk '{print $7}')
 #PROGRESS=plain  #text auto plain
 PROGRESS=auto  #text auto plain
 CACHE=""
 WHERE="--load"
 #push
-WHERE="--load"
+#WHERE="--push"
 
 #exit on error
 set -xe
@@ -22,11 +21,11 @@ set -xe
 #Main
 [[ "$HOSTNAME" =~ holdom ]] && aptCacher=""
 [[ ! -f ${DKRFILE} ]] && echo -e "\nError, Dockerfile is not found\n" && exit 1
-[[ $isMultiArch -eq 0 ]] && echo -e "\nbuildx builder is not mutli arch (arm + x86_64)\n"
+[ ${isMultiArch} -eq 0 ] && echo -e "\nbuildx builder is not mutli arch (arm + x86_64)\n"
 
 #WHERE="--push"
 #CACHE="--no-cache"
-if [[ "docker_login" == ${DUSER} ]]; then
+if [ "docker_login" == ${DUSER} ]; then
   TAG="${IMAGE}:latest"
   else
   TAG="${DUSER}/${IMAGE}:latest"
