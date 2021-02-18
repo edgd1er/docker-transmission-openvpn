@@ -6,7 +6,9 @@
 
 
 this fork of [haugene](https://github.com/haugene/docker-transmission-openvpn) has very few changes from the original. the main purpose is to test ahead of time some changes.
-
+- use image alpine:3.13, node:15.8.0-alpine3.12 as builder
+- add dnsleaktest.sh from https://raw.githubusercontent.com/macvk/dnsleaktest/master/dnsleaktest.sh (no automatic check)
+- 
 --------------------------------------------------------------------------------
 
 This container contains OpenVPN and Transmission with a configuration
