@@ -39,6 +39,9 @@ if [ "${PEER_DNS}" != "no" ]; then
         fi
 fi
 
+#check dnsleak
+command -v /etc/scripts/dnsleaktest.sh 2>&1 && /etc/scripts/dnsleaktest.sh 2>&1
+
 /etc/transmission/start.sh "$@"
 [[ ! -f /opt/tinyproxy/start.sh ]] || /opt/tinyproxy/start.sh
 
