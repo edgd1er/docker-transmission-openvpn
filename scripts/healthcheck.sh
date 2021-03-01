@@ -24,7 +24,8 @@ ping -c 2 -w 10 $HOST # Get at least 2 responses and timeout after 10 seconds
 STATUS=$?
 if [[ ${STATUS} -ne 0 ]]
 then
-    echo "Network is down"
+    echo "Network is down, stopping openvpn"
+    echo signal SIGTERM | telnet localhost 7505
     exit 1
 fi
 
@@ -41,6 +42,7 @@ if [[ ${OPENVPN} -ne 1 ]]; then
 fi
 if [[ ${TRANSMISSION} -ne 1 ]]; then
 	echo "transmission-daemon process not running"
+  exec su --preserve-environment ${RUN_AS} -s /bin/bash -c "/usr/bin/transmission-daemon -g ${TRANSMISSION_HOME} --logfile $LOGFILE" &
 	exit 1
 fi
 

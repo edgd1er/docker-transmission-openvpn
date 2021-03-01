@@ -14,10 +14,11 @@ if [[ "$4" = "" ]]; then
 fi
 
 # If transmission-pre-start.sh exists, run it
-if [[ -x /scripts/transmission-pre-start.sh ]]; then
-  echo "Executing /scripts/transmission-pre-start.sh"
-  /scripts/transmission-pre-start.sh "$@"
-  echo "/scripts/transmission-pre-start.sh returned $?"
+SCRIPT=/etc/scripts/transmission-pre-start.sh
+if [[ -x ${SCRIPT} ]]; then
+  echo "Executing ${SCRIPT}"
+  ${SCRIPT} "$@"
+  echo "${SCRIPT} returned $?"
 fi
 
 echo "Updating TRANSMISSION_BIND_ADDRESS_IPV4 to the ip of $1 : $4"
@@ -42,8 +43,8 @@ if [[ "transmission-web-control" = "$TRANSMISSION_WEB_UI" ]]; then
 fi
 
 if [[ "flood" = "$TRANSMISSION_WEB_UI" ]]; then
-  echo "Using Flood for Transmission UI, overriding TRANSMISSION_WEB_HOME"
-  export TRANSMISSION_WEB_HOME=/opt/transmission-ui/flood-for-transmission
+  echo "Using Transmission flood  UI, overriding TRANSMISSION_WEB_HOME"
+  export TRANSMISSION_WEB_HOME=/opt/transmission-ui/flood
 fi
 
 echo "Updating Transmission settings.json with values from env variables"
@@ -85,10 +86,11 @@ if [[ -x /etc/openvpn/${OPENVPN_PROVIDER,,}/update-port.sh && -z $DISABLE_PORT_U
 fi
 
 # If transmission-post-start.sh exists, run it
-if [[ -x /scripts/transmission-post-start.sh ]]; then
-  echo "Executing /scripts/transmission-post-start.sh"
-  /scripts/transmission-post-start.sh "$@"
-  echo "/scripts/transmission-post-start.sh returned $?"
+SCRIPT=/etc/scripts/transmission-post-start.sh
+if [[ -x ${SCRIPT} ]]; then
+  echo "Executing ${SCRIPT}"
+  ${SCRIPT} "$@"
+  echo "${SCRIPT} returned $?"
 fi
 
 echo "Transmission startup script complete."

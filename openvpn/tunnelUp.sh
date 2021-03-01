@@ -39,7 +39,14 @@ if [ "${PEER_DNS}" != "no" ]; then
         fi
 fi
 
+set -x
+#check dnsleak
+chmod +x /etc/scripts/*.sh
+bash -x /etc/scripts/dnsleaktest.sh 2>&1 && true || true
+
 /etc/transmission/start.sh "$@"
 [[ ! -f /opt/tinyproxy/start.sh ]] || /opt/tinyproxy/start.sh
+
+sleep 2
 
 exit 0
