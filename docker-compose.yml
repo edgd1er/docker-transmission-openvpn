@@ -1,7 +1,7 @@
 version: '3'
 services:
  transmission:
-  image: haugene/transmission-openvpn
+  image: edgd1er/transmission-openvpn
   build:
     context: .
     dockerfile: Dockerfile
