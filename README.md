@@ -1,14 +1,20 @@
 # OpenVPN and Transmission with WebUI
 
-![Docker CI buildx armhf+amd64](https://github.com/edgd1er/docker-transmission-openvpn/workflows/Docker%20CI%20buildx%20armhf+amd64/badge.svg)
-[![Docker Pulls](https://img.shields.io/docker/pulls/edgd1er/transmission-openvpn.svg)](https://hub.docker.com/r/haugene/transmission-openvpn/)
-[![Join the chat at https://gitter.im/docker-transmission-openvpn/Lobby](https://badges.gitter.im/docker-transmission-openvpn/Lobby.svg)](https://gitter.im/docker-transmission-openvpn/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+![Docker build](https://github.com/edgd1er/docker-transmission-openvpn/workflows/Docker%20CI%20buildx%20armhf+amd64/badge.svg)
+[![Docker Pulls](https://img.shields.io/docker/pulls/edgd1er/transmission-openvpn.svg)](https://hub.docker.com/r/edgd1er/transmission-openvpn/)
+[![Docker Stars](https://img.shields.io/docker/stars/edgd1er/openvpn.svg)](https://hub.docker.com/r/edgd1er/transmission-openvpn/)
+[![ImageLayers](https://images.microbadger.com/badges/image/edgd1er/transmission-openvpn.svg)](https://microbadger.com/#/images/edgd1er/transmission-openvpn)
 
+[![Join the chat at https://gitter.im/docker-transmission-openvpn/Lobby](https://badges.gitter.im/transmission-openvpn/Lobby.svg)](https://gitter.im/docker-transmission-openvpn/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
+[![Build Status](https://travis-ci.org/kylemanna/docker-openvpn.svg)](https://travis-ci.org/kylemanna/docker-openvpn)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fkylemanna%2Fdocker-openvpn.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fkylemanna%2Fdocker-openvpn?ref=badge_shield)
 
 this fork of [haugene](https://github.com/haugene/docker-transmission-openvpn) has very few changes from the original. the main purpose is to test ahead of time some changes.
 - use image alpine:3.13, node:15.8.0-alpine3.12 as builder
 - add dnsleaktest.sh from https://raw.githubusercontent.com/macvk/dnsleaktest/master/dnsleaktest.sh (no automatic check)
-- 
+- pre/post start scripts location moved from /scripts to /etc/scripts, add dnsleak report on post transmission start
+- nordvpn: check DNS resolution, needed to download configuration files.
 --------------------------------------------------------------------------------
 
 This container contains OpenVPN and Transmission with a configuration
