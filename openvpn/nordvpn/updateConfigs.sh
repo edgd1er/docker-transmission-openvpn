@@ -114,7 +114,7 @@ download_hostname() {
 }
 
 checkDNS() {
-  ping -c2 downloads.nordcdn.com 2>&1
+  ping -c2 downloads.nordcdn.com 2>&1 >/dev/null
   ret=$?
   if [ $ret -eq 0 ]; then
     log "DNS: resolution ok"
