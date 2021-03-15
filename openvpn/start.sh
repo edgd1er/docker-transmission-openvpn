@@ -13,7 +13,7 @@ fi
 [[ "${DEBUG}" == "true" ]] && set -x
 
 # If openvpn-pre-start.sh exists, run it
-SCRIPT=/scripts/openvpn-pre-start.sh
+SCRIPT=/etc/scripts/openvpn-pre-start.sh
 if [[ -x ${SCRIPT} ]]; then
   echo "Executing ${SCRIPT}"
   ${SCRIPT} "$@"
