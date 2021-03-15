@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 #Network check
 # Ping uses both exit codes 1 and 2. Exit code 2 cannot be used for docker health checks,
@@ -43,7 +43,7 @@ fi
 if [[ ${TRANSMISSION} -ne 1 ]]; then
 	echo "transmission-daemon process not running"
   exec su --preserve-environment ${RUN_AS} -s /bin/bash -c "/usr/bin/transmission-daemon -g ${TRANSMISSION_HOME} --logfile $LOGFILE" &
-	exit 1
+	[[ $(pgrep transmission | wc -l) -ne 1 ]] && exit 1
 fi
 
 echo "Openvpn and transmission-daemon processes are running"
