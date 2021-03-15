@@ -43,6 +43,7 @@ fi
 if [[ ${TRANSMISSION} -ne 1 ]]; then
 	echo "transmission-daemon process not running"
   exec su --preserve-environment ${RUN_AS} -s /bin/bash -c "/usr/bin/transmission-daemon -g ${TRANSMISSION_HOME} --logfile $LOGFILE" &
+  sleep 1
 	[[ $(pgrep transmission | wc -l) -ne 1 ]] && exit 1
 fi
 
