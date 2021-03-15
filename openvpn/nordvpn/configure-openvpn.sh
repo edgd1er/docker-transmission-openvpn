@@ -1,4 +1,4 @@
-#! /bin/bash
+#!/bin/bash
 
 NORDVPN_PROTOCOL=${NORDVPN_PROTOCOL:-UDP}
 export NORDVPN_PROTOCOL
