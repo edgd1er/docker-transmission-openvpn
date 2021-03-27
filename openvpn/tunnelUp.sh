@@ -41,7 +41,8 @@ fi
 
 #check dnsleak
 chmod +x /etc/scripts/*.sh
-[[ -f /etc/scripts/dnsleaktest.sh ]] && chmod +x /etc/scripts/dnsleaktest.sh
+# dnsleaktest rewrite exit code, if file is not found then it's ok.
+[[ -f /etc/scripts/dnsleaktest.sh ]] && /etc/scripts/dnsleaktest.sh 2>&1 && true || true
 
 /etc/transmission/start.sh "$@"
 [[ ! -f /opt/tinyproxy/start.sh ]] || /opt/tinyproxy/start.sh
