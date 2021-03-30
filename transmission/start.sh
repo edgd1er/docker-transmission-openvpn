@@ -14,10 +14,11 @@ if [[ "$4" = "" ]]; then
 fi
 
 # If transmission-pre-start.sh exists, run it
-if [[ -x /scripts/transmission-pre-start.sh ]]; then
-  echo "Executing /scripts/transmission-pre-start.sh"
-  /scripts/transmission-pre-start.sh "$@"
-  echo "/scripts/transmission-pre-start.sh returned $?"
+SCRIPT=/etc/scripts/transmission-pre-start.sh
+if [[ -x ${SCRIPT} ]]; then
+  echo "Executing ${SCRIPT}"
+  ${SCRIPT} "$@"
+  echo "${SCRIPT} returned $?"
 fi
 
 echo "Updating TRANSMISSION_BIND_ADDRESS_IPV4 to the ip of $1 : $4"
@@ -90,10 +91,11 @@ if [[ -x /etc/openvpn/${OPENVPN_PROVIDER,,}/update-port.sh && -z $DISABLE_PORT_U
 fi
 
 # If transmission-post-start.sh exists, run it
-if [[ -x /scripts/transmission-post-start.sh ]]; then
-  echo "Executing /scripts/transmission-post-start.sh"
-  /scripts/transmission-post-start.sh "$@"
-  echo "/scripts/transmission-post-start.sh returned $?"
+SCRIPT=/etc/scripts/transmission-post-start.sh
+if [[ -x ${SCRIPT} ]]; then
+  echo "Executing ${SCRIPT}"
+  ${SCRIPT} "$@"
+  echo "${SCRIPT} returned $?"
 fi
 
 echo "Transmission startup script complete."

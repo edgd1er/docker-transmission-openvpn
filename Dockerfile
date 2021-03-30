@@ -32,7 +32,9 @@ RUN apt-get update && apt-get install -y \
 ADD openvpn/ /etc/openvpn/
 ADD transmission/ /etc/transmission/
 ADD scripts /etc/scripts/
-ADD privoxy/scripts /opt/privoxy/
+#Add a script to test dnsleeak
+# https://raw.githubusercontent.com/macvk/dnsleaktest/master/dnsleaktest.sh
+#ADD https://raw.githubusercontent.com/macvk/dnsleaktest/master/dnsleaktest.sh /etc/scripts/
 
 ENV OPENVPN_USERNAME=**None** \
     OPENVPN_PASSWORD=**None** \

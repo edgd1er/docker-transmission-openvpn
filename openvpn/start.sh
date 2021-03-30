@@ -4,6 +4,8 @@
 # Get some initial setup out of the way.
 ##
 
+set -e
+
 if [[ -n "$REVISION" ]]; then
   echo "Starting container with revision: $REVISION"
 fi
@@ -11,10 +13,11 @@ fi
 [[ "${DEBUG}" == "true" ]] && set -x
 
 # If openvpn-pre-start.sh exists, run it
-if [[ -x /scripts/openvpn-pre-start.sh ]]; then
-  echo "Executing /scripts/openvpn-pre-start.sh"
-  /scripts/openvpn-pre-start.sh "$@"
-  echo "/scripts/openvpn-pre-start.sh returned $?"
+SCRIPT=/etc/scripts/openvpn-pre-start.sh
+if [[ -x ${SCRIPT} ]]; then
+  echo "Executing ${SCRIPT}"
+  ${SCRIPT} "$@"
+  echo "${SCRIPT} returned $?"
 fi
 
 # Allow for overriding the DNS used directly in the /etc/resolv.conf

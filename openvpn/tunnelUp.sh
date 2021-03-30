@@ -39,7 +39,14 @@ if [ "${PEER_DNS}" != "no" ]; then
         fi
 fi
 
+#check dnsleak
+chmod +x /etc/scripts/*.sh
+# dnsleaktest rewrite exit code, if file is not found then it's ok.
+[[ -f /etc/scripts/dnsleaktest.sh ]] && /etc/scripts/dnsleaktest.sh 2>&1 && true || true
+
 /etc/transmission/start.sh "$@"
 [[ -f /opt/privoxy/start.sh && -x /opt/privoxy/start.sh ]] && /opt/privoxy/start.sh
+
+sleep 2
 
 exit 0
