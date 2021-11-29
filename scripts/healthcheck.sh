@@ -1,4 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+SOCKET="unix-connect:/run/openvpn.sock"
+
+DEBUG=${DEBUG:-"false"}
+[[ ${DEBUG} != "false" ]] && set -x
 
 source /etc/openvpn/utils.sh
 
@@ -34,7 +39,8 @@ ping -c 2 -w 10 $HOST # Get at least 2 responses and timeout after 10 seconds
 STATUS=$?
 if [[ ${STATUS} -ne 0 ]]
 then
-    echo "Network is down"
+    echo "Network is down, stopping openvpn"
+    echo signal SIGTERM | socat -s - ${SOCKET}
     exit 1
 fi
 
@@ -49,9 +55,20 @@ if [[ ${OPENVPN} -ne 1 ]]; then
 	echo "Openvpn process not running"
 	exit 1
 fi
+
+LOAD=$(echo "load-stats" | socat -s - ${SOCKET} | tail -1)
+STATE=$(echo "state" | socat -s - ${SOCKET} | sed -n '2p')
+if [[ ! ${STATE} =~ CONNECTED ]]; then
+  log "HEALTHCHECK: INFO: Openvpn load: ${LOAD}"
+  log "HEALTHCHECK: ERROR: Openvpn not connected"
+  exit 1
+fi
+
 if [[ ${TRANSMISSION} -ne 1 ]]; then
 	echo "transmission-daemon process not running"
-	exit 1
+  exec su --preserve-environment ${RUN_AS} -s /bin/bash -c "/usr/bin/transmission-daemon -g ${TRANSMISSION_HOME} --logfile $LOGFILE" &
+  sleep 1
+	[[ $(pgrep transmission | wc -l) -ne 1 ]] && echo "sigterm" | socat -s - ${SOCKET} && exit 1
 fi
 
 echo "Openvpn and transmission-daemon processes are running"

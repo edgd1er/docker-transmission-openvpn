@@ -1,22 +1,25 @@
-FROM alpine:3.13 as TransmissionUIs
+# syntax=docker/dockerfile:1
+FROM alpine:3.14 as TransmissionUIs
 
-RUN apk --no-cache add curl jq \
+#SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+#hadolint ignore=DL3018
+RUN apk --no-cache add wget jq bash\
     && mkdir -p /opt/transmission-ui \
     && echo "Install Shift" \
-    && wget -qO- https://github.com/killemov/Shift/archive/master.tar.gz | tar xz -C /opt/transmission-ui \
+    && wget --no-cache -qO- https://github.com/killemov/Shift/archive/master.tar.gz | tar xz -C /opt/transmission-ui \
     && mv /opt/transmission-ui/Shift-master /opt/transmission-ui/shift \
     && echo "Install Flood for Transmission" \
-    && wget -qO- https://github.com/johman10/flood-for-transmission/releases/download/latest/flood-for-transmission.tar.gz | tar xz -C /opt/transmission-ui \
+    && wget --no-cache -qO- https://github.com/johman10/flood-for-transmission/releases/download/latest/flood-for-transmission.tar.gz | tar xz -C /opt/transmission-ui \
     && echo "Install Combustion" \
-    && wget -qO- https://github.com/Secretmapper/combustion/archive/release.tar.gz | tar xz -C /opt/transmission-ui \
+    && wget --no-cache -qO- https://github.com/Secretmapper/combustion/archive/release.tar.gz | tar xz -C /opt/transmission-ui \
     && echo "Install kettu" \
-    && wget -qO- https://github.com/endor/kettu/archive/master.tar.gz | tar xz -C /opt/transmission-ui \
+    && wget --no-cache -qO- https://github.com/endor/kettu/archive/master.tar.gz | tar xz -C /opt/transmission-ui \
     && mv /opt/transmission-ui/kettu-master /opt/transmission-ui/kettu \
     && echo "Install Transmission-Web-Control" \
     && mkdir /opt/transmission-ui/transmission-web-control \
-    && curl -sL $(curl -s https://api.github.com/repos/ronggang/transmission-web-control/releases/latest | jq --raw-output '.tarball_url') | tar -C /opt/transmission-ui/transmission-web-control/ --strip-components=2 -xz
+    && wget --no-cache -qO- "$(wget --no-cache -qO- https://api.github.com/repos/ronggang/transmission-web-control/releases/latest | jq --raw-output '.tarball_url')" | tar -C /opt/transmission-ui/transmission-web-control/ --strip-components=2 -xz
 
-FROM ubuntu:22.04
+FROM debian:buster-slim
 
 VOLUME /data
 VOLUME /config
@@ -24,8 +27,11 @@ VOLUME /config
 COPY --from=TransmissionUIs /opt/transmission-ui /opt/transmission-ui
 
 ARG DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y \
-    dumb-init openvpn transmission-daemon transmission-cli privoxy \
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+#hadolint ignore=DL3008
+RUN apt-get update && apt-get install -y --no-install-recommends software-properties-common && \
+    apt-add-repository non-free && apt-get update && apt-get install -y --no-install-recommends \
+    dumb-init openvpn transmission-daemon transmission-cli privoxy procps socat \
     tzdata dnsutils iputils-ping ufw openssh-client git jq curl wget unrar unzip bc \
     && ln -s /usr/share/transmission/web/style /opt/transmission-ui/transmission-web-control \
     && ln -s /usr/share/transmission/web/images /opt/transmission-ui/transmission-web-control \
@@ -38,10 +44,12 @@ RUN apt-get update && apt-get install -y \
 
 
 # Add configuration and scripts
-ADD openvpn/ /etc/openvpn/
-ADD transmission/ /etc/transmission/
-ADD scripts /etc/scripts/
-ADD privoxy/scripts /opt/privoxy/
+COPY openvpn/ /etc/openvpn/
+COPY transmission/ /etc/transmission/
+COPY scripts /etc/scripts/
+COPY privoxy/scripts /opt/privoxy/
+#Add a script to test dnsleeak https://raw.githubusercontent.com/macvk/dnsleaktest/master/dnsleaktest.sh
+#ADD https://raw.githubusercontent.com/macvk/dnsleaktest/master/dnsleaktest.sh /etc/scripts/
 
 ENV OPENVPN_USERNAME=**None** \
     OPENVPN_PASSWORD=**None** \
@@ -73,7 +81,7 @@ ENV OPENVPN_USERNAME=**None** \
     HEALTH_CHECK_HOST=google.com \
     SELFHEAL=false
 
-HEALTHCHECK --interval=1m CMD /etc/scripts/healthcheck.sh
+HEALTHCHECK --start-period=60s --interval=1m --retries=4 CMD /etc/scripts/healthcheck.sh
 
 # Pass revision as a build arg, set it as env var
 ARG REVISION
@@ -82,8 +90,7 @@ ENV REVISION=${REVISION:-""}
 # Compatability with https://hub.docker.com/r/willfarrell/autoheal/
 LABEL autoheal=true
 
-# Expose ports and run
-
+# Expose port and run
 #Transmission-RPC
 EXPOSE 9091
 # Privoxy

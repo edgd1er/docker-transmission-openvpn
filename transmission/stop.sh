@@ -11,9 +11,13 @@ then
     echo "/scripts/transmission-pre-stop.sh returned $?"
 fi
 
-echo "Sending kill signal to transmission-daemon"
 PID=$(pidof transmission-daemon)
-kill "$PID"
+if [[ -n ${PID} ]]; then
+  kill "$PID"
+  echo "Sending kill signal to transmission-daemon"
+else
+  echo "No transmission-daemon to kill"
+fi
 
 # Give transmission-daemon some time to shut down
 TRANSMISSION_TIMEOUT_SEC=${TRANSMISSION_TIMEOUT_SEC:-5}

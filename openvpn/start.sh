@@ -6,17 +6,22 @@
 
 set -e
 
-source /etc/openvpn/utils.sh
+SOCKET="/run/openvpn.sock"
+OPENVPN_LOGLEVEL=${OPENVPN_LOGLEVEL:-0}
+DEBUG=${DEBUG:-"false"}
+[[ ${DEBUG} != "false" ]] && set -x && OPENVPN_LOGLEVEL=6
+OPENVPN_OPTS=${OPENVPN_OPTS:-""}
 
 if [[ -n "$REVISION" ]]; then
   echo "Starting container with revision: $REVISION"
 fi
 
 # If openvpn-pre-start.sh exists, run it
-if [[ -x /scripts/openvpn-pre-start.sh ]]; then
-  echo "Executing /scripts/openvpn-pre-start.sh"
-  /scripts/openvpn-pre-start.sh "$@"
-  echo "/scripts/openvpn-pre-start.sh returned $?"
+SCRIPT=/etc/scripts/openvpn-pre-start.sh
+if [[ -x ${SCRIPT} ]]; then
+  echo "Executing ${SCRIPT}"
+  ${SCRIPT} "$@"
+  echo "${SCRIPT} returned $?"
 fi
 
 # Allow for overriding the DNS used directly in the /etc/resolv.conf
@@ -213,9 +218,9 @@ fi
 export CONFIG="${CHOSEN_OPENVPN_CONFIG}"
 python3 /etc/openvpn/persistEnvironment.py /etc/transmission/environment-variables.sh
 
-TRANSMISSION_CONTROL_OPTS="--script-security 2 --route-up /etc/openvpn/tunnelUp.sh --route-pre-down /etc/openvpn/tunnelDown.sh"
+TRANSMISSION_CONTROL_OPTS="--script-security 2 --up-delay --route-up /etc/openvpn/tunnelUp.sh --route-pre-down /etc/openvpn/tunnelDown.sh"
 
-## If we use UFW or the LOCAL_NETWORK we need to grab network config info
+## If we use UFW or the LOCAL_NETWORK we need to grabb network config info
 if [[ "${ENABLE_UFW,,}" == "true" ]] || [[ -n "${LOCAL_NETWORK-}" ]]; then
   eval $(/sbin/ip route list match 0.0.0.0 | awk '{if($5!="tun0"){print "GW="$3"\nINT="$5; exit}}')
   ## IF we use UFW_ALLOW_GW_NET along with ENABLE_UFW we need to know what our netmask CIDR is
@@ -321,6 +326,9 @@ fi
 if [[ ${SELFHEAL:-false} != "false" ]]; then
   /etc/scripts/selfheal.sh &
 fi
+
+[[ ! ${OPENVPN_OPTS} =~ management ]] && OPENVPN_OPTS=${OPENVPN_OPTS}" --management ${SOCKET} unix "
+[[ ! ${OPENVPN_OPTS} =~ --verb ]] && OPENVPN_OPTS=${OPENVPN_OPTS}" --verb ${OPENVPN_LOGLEVEL} "
 
 # shellcheck disable=SC2086
 exec openvpn ${TRANSMISSION_CONTROL_OPTS} ${OPENVPN_OPTS} --config "${CHOSEN_OPENVPN_CONFIG}"
