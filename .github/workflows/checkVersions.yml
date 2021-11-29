@@ -1,0 +1,42 @@
+name: check libevent and transmission versions
+on:
+  schedule:
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+env:
+  LIBEVENT_VERSION: "2.1.12-stable"
+  #TBT_VERSION: "3.00"
+  TBT_VERSION: "4.0.4"
+  TBT_VERSION_DEV: "4.1.0"
+
+jobs:
+  check-lib_event_version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: get libevent's latest version
+        id: getlatestversion
+        run: |
+          ver=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/libevent/libevent/releases/latest" | jq -r .tag_name )
+          echo "libevent build version: ${{ env.LIBEVENT_VERSION }}, latest github libevent version: ${ver}"
+          if [[ ${{ env.LIBEVENT_VERSION }} != ${ver#*-} ]]; then exit 1; fi
+
+  check-transmission_version:
+      runs-on: ubuntu-latest
+      steps:
+        - name: get transmission's latest version
+          id: getlatestversion
+          run: |
+            ver=$(curl -s "https://api.github.com/repos/transmission/transmission/releases/latest" | jq -r .tag_name )
+            echo "transmission build version: ${{ env.TBT_VERSION }}, latest github transmission version: ${ver}"
+            if [[ ${{ env.TBT_VERSION }} != ${ver} ]]; then exit 1; fi
+
+  check-transmission-dev-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: get transmission's dev latest version
+        id: getdevlatestversion
+        run: |
+          devver=$(curl -s "https://raw.githubusercontent.com/transmission/transmission/main/CMakeLists.txt" | grep -oP "(?<=TR_VERSION_(MAJOR|MINOR|PATCH) \")[^\"]+" | tr '\n' '.' | grep -oP "[0-9]+\.[0-9]+\.[0-9]+")
+          echo "transmission build version: ${{ env.TBT_VERSION_DEV }}, latest github transmission dev version: ${devver}"
+          if [[ ${{ env.TBT_VERSION_DEV }} != ${devver} ]]; then exit 1; fi

@@ -1,0 +1,53 @@
+version: '3'
+services:
+ transmission:
+  image: edgd1er/transmission-openvpn
+  build:
+    context: .
+    dockerfile: Dockerfile
+    args:
+      - LIBEVENT_VERSION=2.1.12-stable
+      - TBT_VERSION=3.00
+  cap_add:
+    - NET_ADMIN
+  devices:
+    - /dev/net/tun
+  restart: always
+  ports:
+    - "9091:9091"
+    - "8888:8888"
+  dns:
+    - 8.8.8.8
+    - 8.8.4.4
+  volumes:
+    - /etc/localtime:/etc/localtime:ro
+    - /your/storage/path/:/data
+  environment:
+    - TZ=Europe/Paris
+    - OPENVPN_PROVIDER=NORDVPN
+    - OPENVPN_USERNAME=username
+    - OPENVPN_PASSWORD=password
+    - OPENVPN_LOGLEVEL=0 #Optional, define openvpn verbose level 0-9
+    - NORDVPN_COUNTRY=EE #Optional, by default, servers in user's coyntry.
+    - NORDVPN_PROTOCOL=udp #Optional, udp by default, udp or tcp
+    - NORDVPN_CATEGORY=p2p #Optional, Africa_The_Middle_East_And_India, Asia_Pacific, Europe, Onion_Over_VPN, P2P, Standard_VPN_Servers, The_Americas
+    - OPENVPN_OPTS=--inactive 3600 --ping 10 --ping-exit 60 #optional, empty by default, overrides openvpn config file with parameters
+    - LOCAL_NETWORK=192.168.53.0/24
+    - HEALTH_CHECK_HOST=google.com
+    - WEBPROXY_ENABLED=true
+    - DEBUG=0 #(0/1) activate debug mode for scripts
+ proxy:
+  image: haugene/transmission-openvpn-proxy
+  links:
+    - transmission
+  ports:
+    - 8080:8080
+  volumes:
+    - /etc/localtime:/etc/localtime:ro
+
+ rss:
+  image: haugene/transmission-rss
+  links:
+    - transmission
+  environment:
+    - RSS_URL=http://.../xxxxx.rss

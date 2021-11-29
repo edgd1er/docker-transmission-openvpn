@@ -1,7 +1,8 @@
 #!/bin/bash
 
-set -e
-source /etc/openvpn/utils.sh
+set -e -u -o pipefail
+
+[[ -f /etc/openvpn/utils.sh ]] && source /etc/openvpn/utils.sh || true
 
 # Parent script for updating OpenVPN configs
 # If the script is called from elsewhere
