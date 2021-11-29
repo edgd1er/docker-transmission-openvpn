@@ -1,30 +1,35 @@
-name: Image Builds
+name: Image Builds with template workflow
+
 on:
+  workflow_dispatch:
   push:
     branches:
       - master
-      - dev
-    tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
+    paths-ignore:
+      - .circleci/*
+      #- .github/**
+      - .gitignore
+      - .dockerignore
 
 jobs:
-  build-main-images:
+  build-transmission-v4:
     uses: ./.github/workflows/image-build-template-workflow.yml
     with:
-      image-name: haugene/transmission-openvpn
+      image-name: transmission-openvpn
       build-context: '.'
+      event_version: "2.1.12-stable"
+      tbt_version: 4
+      version: 4
+      tag: "tbt_v4"
     secrets: inherit
 
-  build-proxy-images:
+  build-transmission-v3:
     uses: ./.github/workflows/image-build-template-workflow.yml
     with:
-      image-name: haugene/transmission-openvpn-proxy
-      build-context: 'proxy'
-    secrets: inherit
-
-  build-rss-plugin-images:
-    uses: ./.github/workflows/image-build-template-workflow.yml
-    with:
-      image-name: haugene/transmission-rss
-      build-context: 'plugins/rss'
+      image-name: transmission-openvpn
+      build-context: '.'
+      event_version: "2.1.12-stable"
+      tbt_version: latest
+      version: 3
+      tag: latest
     secrets: inherit

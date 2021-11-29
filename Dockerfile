@@ -1,7 +1,91 @@
-FROM alpine:3.13 as TransmissionUIs
+FROM debian:bullseye-slim as base
+RUN  if [[ -n ${aptcacher} ]]; then echo "Acquire::http::Proxy \"http://${aptcacher}:3142\";" >/etc/apt/apt.conf.d/01proxy; \
+    echo "Acquire::https::Proxy \"http://${aptcacher}:3142\";" >>/etc/apt/apt.conf.d/01proxy ; fi; \
+    apt-get update && apt-get install -y --no-install-recommends software-properties-common \
+    && apt-add-repository non-free && apt-get update && apt-get install -y --no-install-recommends \
+    dumb-init openvpn privoxy procps socat libevent-2.1-7  libnatpmp1 libminiupnpc17 \
+    tzdata dnsutils iputils-ping ufw openssh-client git jq curl wget unrar unzip bc libdeflate0
 
-RUN apk --no-cache add curl jq \
-    && mkdir -p /opt/transmission-ui \
+FROM base as devbase
+ARG TBT_VERSION=3.00
+ARG LIBEVENT_VERSION=2.1.12-stable
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+#hadolint ignore=DL3018,DL3008
+RUN rm -rf /tmp/* /var/tmp/* /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates libcurl4-openssl-dev libssl-dev \
+    pkg-config build-essential checkinstall wget tar zlib1g-dev intltool jq bash cmake g++ make python3 \
+    gettext libdeflate-dev libevent-dev libfmt-dev libminiupnpc-dev \
+    libnatpmp-dev libpsl-dev ninja-build xz-utils clang-format clang clang-tidy git
+RUN curl -fsSL https://deb.nodesource.com/setup_current.x | bash -
+
+#hadolint ignore=DL3003
+#RUN mkdir -p /var/tmp && cd /var/tmp && echo "getting libevent ${LIBEVENT_VERSION} and transmission ${TBT_VERSION}"\
+#    && wget --no-cache -O- https://github.com/libevent/libevent/releases/download/release-${LIBEVENT_VERSION}/libevent-${LIBEVENT_VERSION}.tar.gz \
+#    | tar zx -C /var/tmp/ && mv libevent-${LIBEVENT_VERSION} libevent-${LIBEVENT_VERSION%%-*} \
+#    && cd /var/tmp/libevent-${LIBEVENT_VERSION%%-*} \
+#    && CFLAGS="-Os -march=native" ./configure && make -j2 \
+#    && sed -i 's/TRANSLATE=1/TRANSLATE=0/g' "/etc/checkinstallrc" && checkinstall -y \
+ #   && ls -alh /var/tmp/libevent-${LIBEVENT_VERSION%%-*}/ \
+ #   && mv /var/tmp/libevent-${LIBEVENT_VERSION%%-*}/*.deb /var/tmp/
+WORKDIR /var/tmp
+#hadolint ignore=DL3003
+RUN if [[ "dev" == ${TBT_VERSION} ]]; then \
+    curl -fsSL https://deb.nodesource.com/setup_current.x | bash - \
+    && apt-get install -y nodejs \
+    && echo "Fetching and building ${TBT_VERSION} of transmission" \
+    && git clone --depth 1 --branch main https://github.com/transmission/transmission \
+    && cd transmission  \
+    && git submodule update --init && mkdir build \
+    && cd build && cmake \
+        -S src \
+        -B obj \
+        -G Ninja \
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+        -DCMAKE_CXX_COMPILER='/usr/bin/clang++' \
+        -DCMAKE_CXX_FLAGS='-gdwarf-4 -fno-omit-frame-pointer -fsanitize=address,leak,undefined' \
+        -DCMAKE_C_COMPILER='/usr/bin/clang' \
+        -DCMAKE_C_FLAGS='-gdwarf-4 -fno-omit-frame-pointer -fsanitize=address,leak,undefined' \
+        -DCMAKE_INSTALL_PREFIX=pfx \
+        -DENABLE_CLI=ON \
+        -DENABLE_DAEMON=ON \
+        -DENABLE_GTK=OFF \
+        -DENABLE_MAC=OFF \
+        -DENABLE_QT=OFF \
+        -DENABLE_TESTS=ON \
+        -DENABLE_UTILS=ON \
+        -DENABLE_WEB=ON \
+        -DRUN_CLANG_TIDY=ON .. \
+        && cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo .. \
+        # && cp /var/tmp/transmission-${TBT_VERSION}/*.deb /var/tmp/ ;fi \
+        && make \
+        && make install \
+        && checkinstall -y -D --pkgname transmission  --pakdir /var/tmp --pkgversion="4.0.1" \
+        ; fi
+
+#build from tagged version
+RUN if [[ ${TBT_VERSION} =~ 4 ]]; then \
+    apt-get install -y --no-install-recommends libgtkmm-3.0-dev gettext qttools5-dev build-essential cmake libcurl4-openssl-dev libssl-dev ; \
+    #URL=https://github.com/transmission/transmission-releases/raw/master/transmission-3.00.tar.xz ;\
+    #if [[ ${TBT_VERSION} =~ 4 ]]; then \
+    #URL=https://github.com/transmission/transmission-releases/raw/master/transmission-4.0.0-beta.2%2Brbceb368f1b.tar.xz; fi \
+    URL=https://github.com/transmission/transmission/releases/download/4.0.1/transmission-4.0.1.tar.xz; \
+    # fi \
+    echo "Fetching and building ${URL##*/} of transmission" \
+    && mkdir -p /var/tmp/transmission \
+    && wget --no-cache -O- ${URL} | tar -Jx -C /var/tmp/transmission --strip-components=1 \
+    && cd transmission && mkdir build && cd build \
+    && ls -al .. \
+    && pwd \
+    && cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo .. \
+    && make \
+    && make install \
+    && echo "version: ${TBT_VERSION} / ${TBT_VERSION##*v}" \
+    && checkinstall -y -D --pkgname transmission  --pakdir /var/tmp --pkgversion="${TBT_VERSION##*v}.0.1" \
+    ;fi
+
+FROM alpine:3.16 as TransmissionUIs
+#hadolint ignore=DL3018,DL3008
+RUN apk --no-cache add curl jq && mkdir -p /opt/transmission-ui \
     && echo "Install Shift" \
     && wget -qO- https://github.com/killemov/Shift/archive/master.tar.gz | tar xz -C /opt/transmission-ui \
     && mv /opt/transmission-ui/Shift-master /opt/transmission-ui/shift \
@@ -13,67 +97,90 @@ RUN apk --no-cache add curl jq \
     && wget -qO- https://github.com/endor/kettu/archive/master.tar.gz | tar xz -C /opt/transmission-ui \
     && mv /opt/transmission-ui/kettu-master /opt/transmission-ui/kettu \
     && echo "Install Transmission-Web-Control" \
+    && sleep 60 \
     && mkdir /opt/transmission-ui/transmission-web-control \
-    && curl -sL $(curl -s https://api.github.com/repos/ronggang/transmission-web-control/releases/latest | jq --raw-output '.tarball_url') | tar -C /opt/transmission-ui/transmission-web-control/ --strip-components=2 -xz
+    && wget -qO- "$(wget --no-cache -qO- https://api.github.com/repos/ronggang/transmission-web-control/releases/latest | jq --raw-output '.tarball_url')" | tar -C /opt/transmission-ui/transmission-web-control/ --strip-components=2 -xz
 
-FROM ubuntu:22.04
+FROM base
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG TBT_VERSION=3
+ARG TARGETPLATFORM
 
 VOLUME /data
 VOLUME /config
 
 COPY --from=TransmissionUIs /opt/transmission-ui /opt/transmission-ui
+COPY --from=devbase /var/tmp/*.deb /var/tmp/
+#COPY --from=devbase /usr/local/bin/ /usr/local/bin/
+#COPY --from=devbase /usr/local/share/ /usr/local/share/
 
-ARG DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y \
-    dumb-init openvpn transmission-daemon transmission-cli privoxy \
-    tzdata dnsutils iputils-ping ufw openssh-client git jq curl wget unrar unzip bc \
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+#hadolint ignore=DL3008,SC2046
+
+RUN echo "cpu: ${TARGETPLATFORM}" \
+    && if [ -f /var/tmp/transmission_*_$(dpkg --print-architecture).deb ]; then \
+    ls -alh /var/tmp/*.deb \
+    && echo "Installing transmission ${TBT_VERSION}" \
+    && dpkg -i /var/tmp/transmission_*_$(dpkg --print-architecture).deb  ;\
+    else echo "Installing transmission from repository" \
+    && apt-get install -y --no-install-recommends transmission-daemon transmission-cli; fi\
     && ln -s /usr/share/transmission/web/style /opt/transmission-ui/transmission-web-control \
     && ln -s /usr/share/transmission/web/images /opt/transmission-ui/transmission-web-control \
     && ln -s /usr/share/transmission/web/javascript /opt/transmission-ui/transmission-web-control \
     && ln -s /usr/share/transmission/web/index.html /opt/transmission-ui/transmission-web-control/index.original.html \
-    && rm -rf /tmp/* /var/tmp/* /var/lib/apt/lists/* \
+    #&& rm -rf /tmp/* /var/tmp/* /var/lib/apt/lists/* \
     && groupmod -g 1000 users \
     && useradd -u 911 -U -d /config -s /bin/false abc \
     && usermod -G users abc
 
 
 # Add configuration and scripts
-ADD openvpn/ /etc/openvpn/
-ADD transmission/ /etc/transmission/
-ADD scripts /etc/scripts/
-ADD privoxy/scripts /opt/privoxy/
+COPY openvpn/ /etc/openvpn/
+COPY privoxy/scripts /opt/privoxy/
+COPY scripts /etc/scripts/
+COPY transmission/ /etc/transmission/
+#Add a script to test dnsleeak https://raw.githubusercontent.com/macvk/dnsleaktest/master/dnsleaktest.sh
+#ADD https://raw.githubusercontent.com/macvk/dnsleaktest/master/dnsleaktest.sh /etc/scripts/
+
+# Support legacy IPTables commands
+RUN update-alternatives --set iptables $(which iptables-legacy) && \
+    update-alternatives --set ip6tables $(which ip6tables-legacy)
 
 ENV OPENVPN_USERNAME=**None** \
     OPENVPN_PASSWORD=**None** \
     OPENVPN_PROVIDER=**None** \
-    OPENVPN_OPTS= \
+    OPENVPN_OPTS='' \
+    OPENVPN_LOGLEVEL='' \
+    OPENVPN_CONFIG_URL=''\
     GLOBAL_APPLY_PERMISSIONS=true \
+    TRANSMISSION_WEB_UI=transmission-web-control \
     TRANSMISSION_HOME=/config/transmission-home \
     TRANSMISSION_RPC_PORT=9091 \
-    TRANSMISSION_RPC_USERNAME= \
-    TRANSMISSION_RPC_PASSWORD= \
+    TRANSMISSION_RPC_USERNAME="" \
+    TRANSMISSION_RPC_PASSWORD="" \
     TRANSMISSION_DOWNLOAD_DIR=/data/completed \
     TRANSMISSION_INCOMPLETE_DIR=/data/incomplete \
     TRANSMISSION_WATCH_DIR=/data/watch \
     CREATE_TUN_DEVICE=true \
     ENABLE_UFW=false \
     UFW_ALLOW_GW_NET=false \
-    UFW_EXTRA_PORTS= \
+    UFW_EXTRA_PORTS='' \
     UFW_DISABLE_IPTABLES_REJECT=false \
-    PUID= \
-    PGID= \
+    PUID=''\
+    PGID='' \
     PEER_DNS=true \
     PEER_DNS_PIN_ROUTES=true \
-    DROP_DEFAULT_ROUTE= \
+    DROP_DEFAULT_ROUTE='' \
     WEBPROXY_ENABLED=false \
     WEBPROXY_PORT=8118 \
-    WEBPROXY_USERNAME= \
-    WEBPROXY_PASSWORD= \
+    WEBPROXY_USERNAME='' \
+    WEBPROXY_PASSWORD='' \
     LOG_TO_STDOUT=false \
     HEALTH_CHECK_HOST=google.com \
     SELFHEAL=false
 
-HEALTHCHECK --interval=1m CMD /etc/scripts/healthcheck.sh
+HEALTHCHECK --start-period=60s --interval=1m --retries=4 CMD /etc/scripts/healthcheck.sh
 
 # Pass revision as a build arg, set it as env var
 ARG REVISION
@@ -82,8 +189,7 @@ ENV REVISION=${REVISION:-""}
 # Compatability with https://hub.docker.com/r/willfarrell/autoheal/
 LABEL autoheal=true
 
-# Expose ports and run
-
+# Expose port and run
 #Transmission-RPC
 EXPOSE 9091
 # Privoxy
