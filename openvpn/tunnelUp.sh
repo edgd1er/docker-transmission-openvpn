@@ -2,6 +2,13 @@
 # Source our persisted env variables from container startup
 . /etc/transmission/environment-variables.sh
 
+set -e
+
+DEBUG=${DEBUG:-"false"}
+[[ ${DEBUG} != "false" ]] && set -x && OPENVPN_LOGLEVEL=6
+
+USER_SCRIPT_ARGS=("$dev" "$tun_mtu" "$link_mtu" "$ifconfig_local" "$ifconfig_remote" "$script_context")
+
 if [[ "${PEER_DNS,,}" == "true" ]]; then
         NS=
         NS_ROUTES=( )
@@ -51,7 +58,21 @@ if [[ "${PEER_DNS,,}" == "true" ]]; then
         fi
 fi
 
-/etc/transmission/start.sh "$@"
-[[ -f /opt/privoxy/start.sh && -x /opt/privoxy/start.sh ]] && /opt/privoxy/start.sh
+#change openvpn verbose if needed
+if [[ -n ${OPENVPN_LOGLEVEL} ]]; then
+  echo "verb ${OPENVPN_LOGLEVEL}"|socat -s - unix-connect:/run/openvpn.sock
+fi
+
+#check dnsleak
+chmod 755 /etc/scripts/*.sh /opt/privoxy/*.sh /opt/transmission-ui/transmission-web-control/*.sh
+# dnsleaktest rewrite exit code, if file is not found then it's ok.
+[[ -f /etc/scripts/dnsleaktest.sh ]] && /etc/scripts/dnsleaktest.sh 2>&1 || true
+
+#/etc/transmission/start.sh "$@"
+/etc/transmission/start.sh "${USER_SCRIPT_ARGS[*]}"
+
+[[ -f /opt/privoxy/start.sh ]] && chmod +x /opt/privoxy/start.sh && /opt/privoxy/start.sh
+
+sleep 2
 
 exit 0
