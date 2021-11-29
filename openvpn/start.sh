@@ -4,19 +4,46 @@
 # Get some initial setup out of the way.
 ##
 
-set -e
+set -e -u -o pipefail
 
-source /etc/openvpn/utils.sh
+SOCKET="/run/openvpn.sock"
+[[ -f /etc/openvpn/utils.sh ]] && source /etc/openvpn/utils.sh || true
+OPENVPN_LOGLEVEL=${OPENVPN_LOGLEVEL:-0}
+OPENVPN_OPTS=${OPENVPN_OPTS:-""}
+
+#Change timzeone if set
+if [[ -n ${TZ:-''} ]] && [[ -e /usr/share/zoneinfo/${TZ:-''} ]] && [[ -w /etc/localtime ]]; then
+  rm -f /etc/localtime
+  ln -s /usr/share/zoneinfo/${TZ} /etc/localtime
+fi
 
 if [[ -n "$REVISION" ]]; then
   echo "Starting container with revision: $REVISION"
 fi
 
+#
+# We have moved the default location of TRANSMISSION_HOME. Should be fully backwards compatible, but display an early warning.
+# Will probably keep the compatibility for a long time but should nudge users to update their setup.
+#
+echo "TRANSMISSION_HOME is currently set to: ${TRANSMISSION_HOME}"
+if [[ "${TRANSMISSION_HOME%/*}" != "/config" ]]; then
+        echo "WARNING: TRANSMISSION_HOME is not set to the default /config/transmission-home, this is not recommended."
+        echo "TRANSMISSION_HOME should be set to /config/transmission-home OR another custom directory on /config/<directory>"
+        echo "If you would like to migrate your existing TRANSMISSION_HOME, please stop the container, add volume /config and move the transmission-home directory there."
+fi
+#Old default transmission-home exists, use as fallback
+if [ -d "/data/transmission-home" ]; then
+    TRANSMISSION_HOME="/data/transmission-home"
+    echo "WARNING: Deprecated. Found old default transmission-home folder at ${TRANSMISSION_HOME}, setting this as TRANSMISSION_HOME. This might break in future versions."
+    echo "We will fallback to this directory as long as the folder exists. Please consider moving it to /config/transmission-home"
+fi
+
 # If openvpn-pre-start.sh exists, run it
-if [[ -x /scripts/openvpn-pre-start.sh ]]; then
-  echo "Executing /scripts/openvpn-pre-start.sh"
-  /scripts/openvpn-pre-start.sh "$@"
-  echo "/scripts/openvpn-pre-start.sh returned $?"
+SCRIPT=/etc/scripts/openvpn-pre-start.sh
+if [[ -x ${SCRIPT} ]]; then
+  echo "Executing ${SCRIPT}"
+  ${SCRIPT} "$@"
+  echo "${SCRIPT} returned $?"
 fi
 
 # Allow for overriding the DNS used directly in the /etc/resolv.conf
@@ -54,23 +81,23 @@ export VPN_PROVIDER_HOME="/etc/openvpn/${VPN_PROVIDER}"
 mkdir -p "$VPN_PROVIDER_HOME"
 
 # Make sure that we have enough information to start OpenVPN
-if [[ -z $OPENVPN_CONFIG_URL ]] && [[ "${OPENVPN_PROVIDER}" == "**None**" ]] || [[ -z "${OPENVPN_PROVIDER-}" ]]; then
+if [[ -z ${OPENVPN_CONFIG_URL:-''} ]] && [[ "${OPENVPN_PROVIDER}" == "**None**" ]] || [[ -z "${OPENVPN_PROVIDER-}" ]]; then
   echo "ERROR: Cannot determine where to find your OpenVPN config. Both OPENVPN_CONFIG_URL and OPENVPN_PROVIDER is unset."
   echo "You have to either provide a URL to the config you want to use, or set a configured provider that will download one for you."
   echo "Exiting..." && exit 1
 fi
 echo "Using OpenVPN provider: ${VPN_PROVIDER^^}"
-if [[ "${VPN_PROVIDER}" == "custom" ]]; then
+if [[ "${OPENVPN_PROVIDER}" == "CUSTOM" ]]; then
   if [[ -x $VPN_PROVIDER_HOME/default.ovpn ]]; then
     CHOSEN_OPENVPN_CONFIG=$VPN_PROVIDER_HOME/default.ovpn
   fi
-elif [[ -n $OPENVPN_CONFIG_URL ]]; then
+elif [[ -n ${OPENVPN_CONFIG_URL:-''} ]]; then
   echo "Found URL to single OpenVPN config, will download and use it."
   CHOSEN_OPENVPN_CONFIG=$VPN_PROVIDER_HOME/downloaded_config.ovpn
   curl -o "$CHOSEN_OPENVPN_CONFIG" -sSL "$OPENVPN_CONFIG_URL"
 fi
 
-if [[ -z ${CHOSEN_OPENVPN_CONFIG} ]]; then
+if [[ -z ${CHOSEN_OPENVPN_CONFIG:-''} ]]; then
 
   # Support pulling configs from external config sources
   VPN_CONFIG_SOURCE="${VPN_CONFIG_SOURCE:-auto}"
@@ -82,7 +109,7 @@ if [[ -z ${CHOSEN_OPENVPN_CONFIG} ]]; then
     if [[ -x $VPN_PROVIDER_HOME/configure-openvpn.sh ]]; then
       echo "Provider ${VPN_PROVIDER^^} has a bundled setup script. Defaulting to internal config"
       VPN_CONFIG_SOURCE=internal
-    elif [[ "${VPN_PROVIDER}" == "custom" ]]; then
+    elif [[ "${OPENVPN_PROVIDER}" == "CUSTOM" ]]; then
       echo "CUSTOM provider specified but not using default.ovpn, will try to find a valid config mounted to $VPN_PROVIDER_HOME"
       VPN_CONFIG_SOURCE=custom
     else
@@ -159,6 +186,11 @@ if [[ -z ${CHOSEN_OPENVPN_CONFIG:-""} ]]; then
   fi
 fi
 
+# log message and fail if attempting to mount config directly
+if mountpoint -q "$CHOSEN_OPENVPN_CONFIG"; then
+  fatal_error "You're mounting a openvpn config directly, dont't do this it causes issues (see #2274). Mount the directory where the config is instead."
+fi
+
 MODIFY_CHOSEN_CONFIG="${MODIFY_CHOSEN_CONFIG:-true}"
 # The config file we're supposed to use is chosen, modify it to fit this container setup
 if [[ "${MODIFY_CHOSEN_CONFIG,,}" == "true" ]]; then
@@ -197,25 +229,19 @@ else
 fi
 
 if [[ -f /run/secrets/rpc_creds ]]; then
-  #write creds if no file or contents are not the same.
-  if [[ ! -f /config/transmission-credentials.txt ]] || [[ "$(cat /run/secrets/rpc_creds)" != "$(cat /config/transmission-credentials.txt)" ]]; then
-    echo "Setting Transmission RPC credentials from docker secret..."
-    cp /run/secrets/rpc_creds /config/transmission-credentials.txt
-    export TRANSMISSION_RPC_USERNAME=$(head -1 /config/transmission-credentials.txt)
-    export TRANSMISSION_RPC_PASSWORD=$(tail -1 /config/transmission-credentials.txt)
-  fi
-else
-  echo "${TRANSMISSION_RPC_USERNAME}" > /config/transmission-credentials.txt
-  echo "${TRANSMISSION_RPC_PASSWORD}" >> /config/transmission-credentials.txt
+  export TRANSMISSION_RPC_USERNAME=$(head -1 /run/secrets/rpc_creds)
+  export TRANSMISSION_RPC_PASSWORD=$(tail -1 /run/secrets/rpc_creds)
 fi
+echo "${TRANSMISSION_RPC_USERNAME}" > /config/transmission-credentials.txt
+echo "${TRANSMISSION_RPC_PASSWORD}" >> /config/transmission-credentials.txt
 
 # Persist transmission settings for use by transmission-daemon
 export CONFIG="${CHOSEN_OPENVPN_CONFIG}"
 python3 /etc/openvpn/persistEnvironment.py /etc/transmission/environment-variables.sh
 
-TRANSMISSION_CONTROL_OPTS="--script-security 2 --route-up /etc/openvpn/tunnelUp.sh --route-pre-down /etc/openvpn/tunnelDown.sh"
+TRANSMISSION_CONTROL_OPTS="--script-security 2 --up-delay --route-up /etc/openvpn/tunnelUp.sh --route-pre-down /etc/openvpn/tunnelDown.sh"
 
-## If we use UFW or the LOCAL_NETWORK we need to grab network config info
+## If we use UFW or the LOCAL_NETWORK we need to grabb network config info
 if [[ "${ENABLE_UFW,,}" == "true" ]] || [[ -n "${LOCAL_NETWORK-}" ]]; then
   eval $(/sbin/ip route list match 0.0.0.0 | awk '{if($5!="tun0"){print "GW="$3"\nINT="$5; exit}}')
   ## IF we use UFW_ALLOW_GW_NET along with ENABLE_UFW we need to know what our netmask CIDR is
@@ -226,7 +252,7 @@ fi
 
 ## Open port to any address
 function ufwAllowPort {
-  portNum=${1}
+  portNum=${1:-''}
   if [[ "${ENABLE_UFW,,}" == "true" ]] && [[ -n "${portNum-}" ]]; then
     echo "allowing ${portNum} through the firewall"
     ufw allow ${portNum}
@@ -235,8 +261,8 @@ function ufwAllowPort {
 
 ## Open port to specific address.
 function ufwAllowPortLong {
-  portNum=${1}
-  sourceAddress=${2}
+  portNum=${1:-''}
+  sourceAddress=${2:-''}
 
   if [[ "${ENABLE_UFW,,}" == "true" ]] && [[ -n "${portNum-}" ]] && [[ -n "${sourceAddress-}" ]]; then
     echo "allowing ${sourceAddress} through the firewall to port ${portNum}"
@@ -270,10 +296,10 @@ set +u
     PEER_PORT="${TRANSMISSION_PEER_PORT}"
   fi
 
-  ufwAllowPort ${PEER_PORT}
+  ufwAllowPort ${PEER_PORT:-''}
 
   if [[ "${WEBPROXY_ENABLED,,}" == "true" ]]; then
-    ufwAllowPort ${WEBPROXY_PORT}
+    ufwAllowPort ${WEBPROXY_PORT:-8118}
   fi
   if [[ "${UFW_ALLOW_GW_NET,,}" == "true" ]]; then
     ufwAllowPortLong ${TRANSMISSION_RPC_PORT} ${GW_CIDR}
@@ -322,5 +348,8 @@ if [[ ${SELFHEAL:-false} != "false" ]]; then
   /etc/scripts/selfheal.sh &
 fi
 
+[[ ! ${OPENVPN_OPTS} =~ management ]] && OPENVPN_OPTS=${OPENVPN_OPTS}" --management ${SOCKET} unix "
+[[ ! ${OPENVPN_OPTS} =~ --verb ]] && OPENVPN_OPTS=${OPENVPN_OPTS}" --verb ${OPENVPN_LOGLEVEL:-3} "
+
 # shellcheck disable=SC2086
-exec openvpn ${TRANSMISSION_CONTROL_OPTS} ${OPENVPN_OPTS} --config "${CHOSEN_OPENVPN_CONFIG}"
+exec openvpn --config ${CHOSEN_OPENVPN_CONFIG} ${TRANSMISSION_CONTROL_OPTS} ${OPENVPN_OPTS}

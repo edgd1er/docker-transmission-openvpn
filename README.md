@@ -1,6 +1,24 @@
 # OpenVPN and Transmission with WebUI
 
-[![Docker Pulls](https://img.shields.io/docker/pulls/haugene/transmission-openvpn.svg)](https://hub.docker.com/r/haugene/transmission-openvpn/)
+![Docker build](https://github.com/edgd1er/docker-transmission-openvpn/workflows/Docker%20CI%20buildx%20armhf+amd64/badge.svg)
+![Docker Size](https://badgen.net/docker/size/edgd1er/transmission-openvpn/latest/amd64?icon=docker&label=Size)
+![Docker Pulls](https://badgen.net/docker/pulls/edgd1er/transmission-openvpn?icon=docker&label=Pulls)
+![Docker Stars](https://badgen.net/docker/stars/edgd1er/transmission-openvpn?icon=docker&label=Stars)
+![ImageLayers](https://badgen.net/docker/layers/edgd1er/transmission-openvpn?icon=docker&label=Layers)
+
+[![Join the chat at https://gitter.im/docker-transmission-openvpn/Lobby](https://badges.gitter.im/transmission-openvpn/Lobby.svg)](https://gitter.im/docker-transmission-openvpn/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fkylemanna%2Fdocker-openvpn.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fkylemanna%2Fdocker-openvpn?ref=badge_shield)
+
+this fork of [haugene](https://github.com/haugene/docker-transmission-openvpn) has very few changes from the original. the main purpose is to test ahead of time some changes.
+- use transmission v3.0, instead of 2.94. (for tbt_v3 branch)
+- use debian:bullseye-slim
+- add dnsleaktest.sh from https://raw.githubusercontent.com/macvk/dnsleaktest/master/dnsleaktest.sh (no automatic check)
+- pre/post start scripts location moved from /scripts to /etc/scripts, add dnsleak report on post transmission start
+- kill openvpn through [management port](https://github.com/OpenVPN/openvpn/blob/master/doc/management-notes.txt) if healthcheck is failing.
+- healthcheck: check ping, openvpn running, transmission running
+- credentials: use docker secrets to transfer user/password to container.
+--------------------------------------------------------------------------------
 
 This container contains OpenVPN and Transmission with a configuration
 where Transmission is running only when OpenVPN has an active tunnel.

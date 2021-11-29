@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import argparse
 import os
 
@@ -13,8 +15,9 @@ parser.add_argument(
 args = parser.parse_args()
 
 wanted_variables = {
-    'OPENVPN_PROVIDER',
     'DEBUG',
+    'OPENVPN_PROVIDER',
+    'OPENVPN_LOGLEVEL',
     'ENABLE_UFW',
     'PUID',
     'PGID',
@@ -43,6 +46,7 @@ for env_var in os.environ:
 
 # Dump resulting settings to file
 with open(args.env_var_script_file, 'w') as script_file:
+    script_file.write("#!/bin/bash\n")
     for var_name, var_value in variables_to_persist.items():
         script_file.write(
             'export {env_var}={env_var_value}\n'.format(
