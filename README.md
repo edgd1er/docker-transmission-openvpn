@@ -11,12 +11,13 @@
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fkylemanna%2Fdocker-openvpn.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fkylemanna%2Fdocker-openvpn?ref=badge_shield)
 
 this fork of [haugene](https://github.com/haugene/docker-transmission-openvpn) has very few changes from the original. the main purpose is to test ahead of time some changes.
-- use debian:buster-slim, alpine3.13 as builder
+- use transmission v3.0, instead of 2.94. (for tbt_v3 branch)
+- use debian:bullseye-slim
 - add dnsleaktest.sh from https://raw.githubusercontent.com/macvk/dnsleaktest/master/dnsleaktest.sh (no automatic check)
 - pre/post start scripts location moved from /scripts to /etc/scripts, add dnsleak report on post transmission start
-- nordvpn: check DNS resolution, needed to download configuration files.
-- kill openvpn through management port if healthcheck is failing.
+- kill openvpn through [management port](https://github.com/OpenVPN/openvpn/blob/master/doc/management-notes.txt) if healthcheck is failing.
 - healthcheck: check ping, openvpn running, transmission running
+- credentials: use docker secrets to transfer user/password to container.
 --------------------------------------------------------------------------------
 
 This container contains OpenVPN and Transmission with a configuration

@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 
 SOCKET="unix-connect:/run/openvpn.sock"
-
-DEBUG=${DEBUG:-"false"}
-[[ ${DEBUG} != "false" ]] && set -x
+[[ -f /etc/openvpn/utils.sh ]] && source /etc/openvpn/utils.sh || true
+RUN_AS=abc
 
 source /etc/openvpn/utils.sh
 
@@ -64,10 +63,16 @@ if [[ ! ${STATE} =~ CONNECTED ]]; then
   exit 1
 fi
 
+if [[ "true" = "$LOG_TO_STDOUT" ]]; then
+  LOGFILE=/dev/stdout
+else
+  LOGFILE=${TRANSMISSION_HOME}/transmission.log
+fi
+
 if [[ ${TRANSMISSION} -ne 1 ]]; then
 	echo "transmission-daemon process not running"
   exec su --preserve-environment ${RUN_AS} -s /bin/bash -c "/usr/bin/transmission-daemon -g ${TRANSMISSION_HOME} --logfile $LOGFILE" &
-  sleep 1
+  sleep 5
 	[[ $(pgrep transmission | wc -l) -ne 1 ]] && echo "sigterm" | socat -s - ${SOCKET} && exit 1
 fi
 

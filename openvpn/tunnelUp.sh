@@ -1,12 +1,7 @@
 #!/bin/bash
 # Source our persisted env variables from container startup
 . /etc/transmission/environment-variables.sh
-source /etc/openvpn/utils.sh
-
-set -e
-
-DEBUG=${DEBUG:-"false"}
-[[ ${DEBUG} != "false" ]] && set -x && OPENVPN_LOGLEVEL=6
+[[ -f /etc/openvpn/utils.sh ]] && source /etc/openvpn/utils.sh || true
 
 USER_SCRIPT_ARGS=("$dev" "$tun_mtu" "$link_mtu" "$ifconfig_local" "$ifconfig_remote" "$script_context")
 
@@ -67,7 +62,7 @@ fi
 #check dnsleak
 chmod 755 /etc/scripts/*.sh /opt/privoxy/*.sh /opt/transmission-ui/transmission-web-control/*.sh
 # dnsleaktest rewrite exit code, if file is not found then it's ok.
-[[ -f /etc/scripts/dnsleaktest.sh ]] && /etc/scripts/dnsleaktest.sh 2>&1 || true
+#[[ -f /etc/scripts/dnsleaktest.sh ]] && /etc/scripts/dnsleaktest.sh 2>&1 || true
 
 #/etc/transmission/start.sh "$@"
 /etc/transmission/start.sh "${USER_SCRIPT_ARGS[*]}"

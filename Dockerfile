@@ -1,38 +1,66 @@
 # syntax=docker/dockerfile:1
-FROM alpine:3.14 as TransmissionUIs
-
+FROM debian:bullseye-slim as TransmissionUIs
+ARG LIBEVENT_VERSION=2.1.12-stable
+ARG TBT_VERSION=3.00
 #SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 #hadolint ignore=DL3018
-RUN apk --no-cache add wget jq bash\
-    && mkdir -p /opt/transmission-ui \
+#RUN apt-get update && apt-get -y --no-install-recommends install build-essential automake autoconf libtool pkg-config\
+#     intltool libcurl4-openssl-dev libglib2.0-dev libevent-dev libminiupnpc-dev libgtk-3-dev libappindicator3-dev \
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates libcurl4-openssl-dev libssl-dev \
+     pkg-config build-essential checkinstall wget tar zlib1g-dev intltool jq bash
+RUN cd /var/tmp \
+    && wget -O- https://github.com/libevent/libevent/releases/download/release-${LIBEVENT_VERSION}/libevent-${LIBEVENT_VERSION}.tar.gz \
+    | tar zx -C /var/tmp/ && mv libevent-${LIBEVENT_VERSION} libevent-${LIBEVENT_VERSION%%-*} \
+    && cd /var/tmp/libevent-${LIBEVENT_VERSION%%-*} \
+    && CFLAGS="-Os -march=native" ./configure && make -j2 \
+    && sed -i 's/TRANSLATE=1/TRANSLATE=0/g' "/etc/checkinstallrc" && checkinstall -y \
+    && ls -alh /var/tmp/libevent-${LIBEVENT_VERSION%%-*}/ \
+    && mv /var/tmp/libevent-${LIBEVENT_VERSION%%-*}/*.deb /var/tmp/
+RUN cd /var/tmp \
+    && wget -O- https://github.com/transmission/transmission-releases/raw/master/transmission-${TBT_VERSION}.tar.xz \
+    | tar -Jx -C /var/tmp/ \
+    && cd transmission-${TBT_VERSION} \
+    && CFLAGS="-Os -march=native" ./configure --enable-lightweight && make -j2 && checkinstall -y -D \
+    && cp /var/tmp/transmission-${TBT_VERSION}/*.deb /var/tmp/
+
+RUN mkdir -p /opt/transmission-ui \
     && echo "Install Shift" \
-    && wget --no-cache -qO- https://github.com/killemov/Shift/archive/master.tar.gz | tar xz -C /opt/transmission-ui \
+    && wget --no-cache -O- https://github.com/killemov/Shift/archive/master.tar.gz | tar xz -C /opt/transmission-ui \
     && mv /opt/transmission-ui/Shift-master /opt/transmission-ui/shift \
     && echo "Install Flood for Transmission" \
-    && wget --no-cache -qO- https://github.com/johman10/flood-for-transmission/releases/download/latest/flood-for-transmission.tar.gz | tar xz -C /opt/transmission-ui \
+    && wget --no-cache -O- https://github.com/johman10/flood-for-transmission/releases/download/latest/flood-for-transmission.tar.gz | tar xz -C /opt/transmission-ui \
     && echo "Install Combustion" \
-    && wget --no-cache -qO- https://github.com/Secretmapper/combustion/archive/release.tar.gz | tar xz -C /opt/transmission-ui \
+    && wget --no-cache -O- https://github.com/Secretmapper/combustion/archive/release.tar.gz | tar xz -C /opt/transmission-ui \
     && echo "Install kettu" \
-    && wget --no-cache -qO- https://github.com/endor/kettu/archive/master.tar.gz | tar xz -C /opt/transmission-ui \
+    && wget --no-cache -O- https://github.com/endor/kettu/archive/master.tar.gz | tar xz -C /opt/transmission-ui \
     && mv /opt/transmission-ui/kettu-master /opt/transmission-ui/kettu \
     && echo "Install Transmission-Web-Control" \
     && mkdir /opt/transmission-ui/transmission-web-control \
     && wget --no-cache -qO- "$(wget --no-cache -qO- https://api.github.com/repos/ronggang/transmission-web-control/releases/latest | jq --raw-output '.tarball_url')" | tar -C /opt/transmission-ui/transmission-web-control/ --strip-components=2 -xz
 
-FROM debian:buster-slim
+FROM debian:bullseye-slim
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG LIBEVENT_VERSION=2.1.12-stable
+ARG TBT_VERSION=3.00
+ARG TARGETPLATFORM
 
 VOLUME /data
 VOLUME /config
 
 COPY --from=TransmissionUIs /opt/transmission-ui /opt/transmission-ui
+COPY --from=TransmissionUIs /var/tmp/*.deb /var/tmp/
 
-ARG DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 #hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends software-properties-common && \
     apt-add-repository non-free && apt-get update && apt-get install -y --no-install-recommends \
     dumb-init openvpn transmission-daemon transmission-cli privoxy procps socat \
     tzdata dnsutils iputils-ping ufw openssh-client git jq curl wget unrar unzip bc \
+    && echo "cpu: ${TARGETPLATFORM}" \
+    && ls -alh /var/tmp/*.deb \
+    && dpkg -i /var/tmp/libevent_${LIBEVENT_VERSION%%-*}-1_$(dpkg --print-architecture).deb \
+    && dpkg -i /var/tmp/transmission_${TBT_VERSION}-1_$(dpkg --print-architecture).deb \
     && ln -s /usr/share/transmission/web/style /opt/transmission-ui/transmission-web-control \
     && ln -s /usr/share/transmission/web/images /opt/transmission-ui/transmission-web-control \
     && ln -s /usr/share/transmission/web/javascript /opt/transmission-ui/transmission-web-control \
@@ -45,9 +73,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends software-proper
 
 # Add configuration and scripts
 COPY openvpn/ /etc/openvpn/
-COPY transmission/ /etc/transmission/
-COPY scripts /etc/scripts/
 COPY privoxy/scripts /opt/privoxy/
+COPY scripts /etc/scripts/
+COPY transmission/ /etc/transmission/
 #Add a script to test dnsleeak https://raw.githubusercontent.com/macvk/dnsleaktest/master/dnsleaktest.sh
 #ADD https://raw.githubusercontent.com/macvk/dnsleaktest/master/dnsleaktest.sh /etc/scripts/
 
@@ -56,6 +84,7 @@ ENV OPENVPN_USERNAME=**None** \
     OPENVPN_PROVIDER=**None** \
     OPENVPN_OPTS= \
     GLOBAL_APPLY_PERMISSIONS=true \
+    TRANSMISSION_WEB_UI=transmission-web-control \
     TRANSMISSION_HOME=/config/transmission-home \
     TRANSMISSION_RPC_PORT=9091 \
     TRANSMISSION_RPC_USERNAME= \
@@ -66,17 +95,17 @@ ENV OPENVPN_USERNAME=**None** \
     CREATE_TUN_DEVICE=true \
     ENABLE_UFW=false \
     UFW_ALLOW_GW_NET=false \
-    UFW_EXTRA_PORTS= \
+    UFW_EXTRA_PORTS='' \
     UFW_DISABLE_IPTABLES_REJECT=false \
-    PUID= \
-    PGID= \
+    PUID=''\
+    PGID='' \
     PEER_DNS=true \
     PEER_DNS_PIN_ROUTES=true \
-    DROP_DEFAULT_ROUTE= \
+    DROP_DEFAULT_ROUTE='' \
     WEBPROXY_ENABLED=false \
     WEBPROXY_PORT=8118 \
-    WEBPROXY_USERNAME= \
-    WEBPROXY_PASSWORD= \
+    WEBPROXY_USERNAME='' \
+    WEBPROXY_PASSWORD='' \
     LOG_TO_STDOUT=false \
     HEALTH_CHECK_HOST=google.com \
     SELFHEAL=false

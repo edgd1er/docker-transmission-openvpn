@@ -6,8 +6,7 @@
 | `OPENVPN_USERNAME` | Your OpenVPN username             | `OPENVPN_USERNAME=asdf`                                                                                 |
 | `OPENVPN_PASSWORD` | Your OpenVPN password, beware of special charcters. Docker run vs docker-compose (using yaml) interprete special characters differently, see  [Yaml special characters](https://support.asg.com/mob/mvw/10_0/mv_ag/using_quotes_with_yaml_special_characters.htm)             | `OPENVPN_PASSWORD=asdf`                                                                                 |
 
-Docker secrets are available to define OPENVPN_USER and OPENVPN_PASSWORD.
-
+docker secrets are available to define OPENVPN_USER and OPENVPN_PASSWORD.
 * remove OPENVPN_USERNAME, OPENVPN_PASSWORD from environment.
 * write your credentials in one file: openvpn_creds
 * add to your compose yaml:
@@ -106,9 +105,9 @@ In previous versions of this container the settings were not persistent but was 
 This had the benefit of being very explicit and reproducable but you had to provide Transmission config as environment variables if you
 wanted them to stay that way between container restarts. This felt cumbersome to many.
 
-As of version 4.2 this is no longer true. Settings are now persisted in the `/config/transmission-home` folder in the container and as
+As of version 5.0 this is no longer true. Settings are now persisted in the `/config/transmission-home` folder in the container and as
 long as you mount `/config` you should be able to configure Transmission using the UI as you normally would.
-If you are using the container from earlier versions and have not changed the location of transmission-home to /config, you will see a warning message that the default has changed.
+if you are using the container from earlier versions and have not changed the location of transmission-home to /config, you will see a warning message that the default has changed.
 You can manually move the folder to your /config volume directory after stopping the container and adding the /config mount to your container setup (compose/run etc).
 
 You may still override Transmission options by setting environment variables if that's your thing.

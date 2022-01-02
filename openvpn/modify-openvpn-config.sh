@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source /etc/openvpn/utils.sh
+[[ -f /etc/openvpn/utils.sh ]] && source /etc/openvpn/utils.sh || true
 
 if [ "$#" -ne 1 ]; then
     echo "Illegal number of parameters"

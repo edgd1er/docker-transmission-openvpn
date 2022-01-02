@@ -1,5 +1,7 @@
-
 .idea/
 your_storage_path/
+your_config_path/
 
+openvpn_creds
 docker-compose.yml
+docker-compose-dev.yml

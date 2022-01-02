@@ -3,7 +3,7 @@
 
 # Source our persisted env variables from container startup
 . /etc/transmission/environment-variables.sh
-source /etc/openvpn/utils.sh
+[[ -f /etc/openvpn/utils.sh ]] && source /etc/openvpn/utils.sh || true
 
 set_port()
 {
