@@ -1,6 +1,6 @@
 #!/bin/bash
 # redirect stdout/stderr to a file
-source /etc/openvpn/utils.sh
+[[ -f /etc/openvpn/utils.sh ]] && source /etc/openvpn/utils.sh || true
 
 #exec &>>route-pre-down.log
 

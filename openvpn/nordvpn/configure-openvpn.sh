@@ -19,8 +19,8 @@
 # 2021/09/22: store json results, merged configure-openvpn + updateConfigs.sh: OPENVPN_CONFIG is confusing for users. (#1958)
 
 set -e
-DEBUG=${DEBUG:-"false"}
-[[ ${DEBUG} != "false" ]] && set -x && OPENVPN_LOGLEVEL=6
+[[ -f /etc/openvpn/utils.sh ]] && source /etc/openvpn/utils.sh || true
+
 
 #Variables
 TIME_FORMAT=$(date "+%Y-%m-%d %H:%M:%S")
@@ -37,12 +37,6 @@ json_countries=$(curl -s ${nordvpn_api}/v1/servers/countries)
 json_groups=$(curl -s ${nordvpn_api}/v1/servers/groups)
 #technologies (NORDVPN_PROTOCOL) not used as only openvpn_udp and openvpn_tcp are tested.
 json_technologies=$(curl -s ${nordvpn_api}/v1/technologies)
-
-possible_categories="$(echo ${json_groups} | jq -r .[].identifier | tr '\n' ', ')"
-possible_country_codes="$(echo ${json_countries} | jq -r .[].code | tr '\n' ', ')"
-possible_country_names="$(echo ${json_countries} | jq -r .[].name | tr '\n' ', ')"
-possible_protocol="$(echo ${json_technologies} | jq -r '.[] | [.identifier, .name ]' | tr '\n' ', ' | grep openvpn )"
-
 
 # Functions
 # TESTS: set values to test API response.
@@ -69,11 +63,13 @@ test3Incompatible_combinations(){
 
 # Normal run functions
 log() {
-  printf "${TIME_FORMAT} %b\n" "$*" >/dev/stderr
+  #printf "${TIME_FORMAT} %b\n" "$*" >/dev/stderr
+  printf "%b\n" "$*" >/dev/stderr
 }
 
 fatal_error() {
-  printf "${TIME_FORMAT} \e[41mERROR:\033[0m %b\n" "$*" >&2
+  #printf "${TIME_FORMAT} \e[41mERROR:\033[0m %b\n" "$*" >&2
+  printf "\e[41mERROR:\033[0m %b\n" "$*" >&2
   exit 1
 }
 
@@ -188,7 +184,13 @@ download_hostname() {
   log "Downloading config: ${ovpnName}"
   log "Downloading from: ${nordvpn_cdn}"
   # VPN_PROVIDER_HOME defined is openvpn/start.sh
-  curl -sSL ${nordvpn_cdn} -o "${VPN_PROVIDER_HOME}/${ovpnName}"
+  outfile="-o "${VPN_PROVIDER_HOME}/${ovpnName}
+  #when testing script outside of container, display config instead of writing it.
+  if [ ! -w ${VPN_PROVIDER_HOME} ]; then
+    log "${VPN_PROVIDER_HOME} is not writable, outputing to stdout"
+    unset outfile
+  fi
+  curl -sSL ${nordvpn_cdn} ${outfile}
 }
 
 checkDNS() {
@@ -213,6 +215,22 @@ checkDNS() {
 cd "${0%/*}"
 script_init
 checkDNS
+
+log "Checking NORDPVN API responses"
+for po in  json_countries json_groups json_technologies; do
+  if [[ $(echo ${!po} | grep -c "<html>") -gt 0  ]]; then
+     msg=$(echo ${!po} | grep -oP "(?<=title>)[^<]+")
+     echo "ERROR, unexptected html content from NORDVPN servers: ${msg}"
+     sleep 30
+     exit
+  fi
+done
+
+possible_categories="$(echo ${json_groups} | jq -r .[].identifier | tr '\n' ', ')"
+possible_country_codes="$(echo ${json_countries} | jq -r .[].code | tr '\n' ', ')"
+possible_country_names="$(echo ${json_countries} | jq -r .[].name | tr '\n' ', ')"
+possible_protocol="$(echo ${json_technologies} | jq -r '.[] | [.identifier, .name ]' | tr '\n' ', ' | grep openvpn)"
+
 
 log "Removing existing configs in ${VPN_PROVIDER_HOME}"
 find ${VPN_PROVIDER_HOME} -type f ! -name '*.sh' -delete
