@@ -20,6 +20,8 @@ env:
   IMAGE: transmission-openvpn
   REVISION: latest
   TAG: latest
+  LIBEVENT_VERSION: "2.1.12-stable"
+  TBT_VERSION: "3.00"
 
 jobs:
   buildx:
@@ -68,7 +70,8 @@ jobs:
           push: true
           build-args: |
             REVISION=${{ env.REVISION }}
-            DISTRO=${{ env.DISTRO }}
+            LIBEVENT_VERSION=${{ env.LIBEVENT_VERSION }}
+            TBT_VERSION=${{ env.TBT_VERSION }}
           tags: ${{ secrets.DOCKER_USER }}/${{ env.IMAGE }}:${{ env.TAG }}
       - name: Inspect image
         run: |

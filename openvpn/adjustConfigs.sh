@@ -1,5 +1,7 @@
 #!/bin/bash
 
+[[ -f /etc/openvpn/utils.sh ]] && source /etc/openvpn/utils.sh || true
+
 bold=$(tput bold)
 normal=$(tput sgr0)
 

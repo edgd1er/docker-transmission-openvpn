@@ -1,8 +1,10 @@
-#! /bin/bash
+#!/bin/bash
 
 set -o nounset
 set -o errexit
 set -o pipefail
+
+[[ -f /etc/openvpn/utils.sh ]] && source /etc/openvpn/utils.sh || true
 
 VPN_CONFIG_SOURCE_TYPE="${VPN_CONFIG_SOURCE_TYPE:-github_zip}"
 

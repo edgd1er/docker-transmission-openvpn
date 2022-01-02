@@ -7,10 +7,12 @@
 set -e
 
 SOCKET="/run/openvpn.sock"
+[[ -f /etc/openvpn/utils.sh ]] && source /etc/openvpn/utils.sh || true
 OPENVPN_LOGLEVEL=${OPENVPN_LOGLEVEL:-0}
-DEBUG=${DEBUG:-"false"}
-[[ ${DEBUG} != "false" ]] && set -x && OPENVPN_LOGLEVEL=6
 OPENVPN_OPTS=${OPENVPN_OPTS:-""}
+
+#Change timzeone if set
+[[ -n ${TZ} ]] && [[ -e /usr/share/zoneinfo/${TZ} ]] && [[ -w /etc/localtime ]] && rm -f /etc/localtime && ln -s /usr/share/zoneinfo/${TZ} /etc/localtime
 
 if [[ -n "$REVISION" ]]; then
   echo "Starting container with revision: $REVISION"
@@ -39,7 +41,7 @@ if ! nslookup ${HEALTH_CHECK_HOST:-"google.com"} 1>/dev/null 2>&1; then
 fi
 
 # If create_tun_device is set, create /dev/net/tun
-if [[ "${CREATE_TUN_DEVICE,,}" == "true" ]]; then
+if [[ "${CREATE_TUN_DEVICE,,}" == "true" ]] ; then
   echo "Creating TUN device /dev/net/tun"
   mkdir -p /dev/net
   mknod /dev/net/tun c 10 200
@@ -64,8 +66,11 @@ if [[ -z $OPENVPN_CONFIG_URL ]] && [[ "${OPENVPN_PROVIDER}" == "**None**" ]] || 
   echo "Exiting..." && exit 1
 fi
 echo "Using OpenVPN provider: ${VPN_PROVIDER^^}"
-
-if [[ -n $OPENVPN_CONFIG_URL ]]; then
+if [[ "${OPENVPN_PROVIDER}" == "CUSTOM" ]]; then
+  if [[ -x $VPN_PROVIDER_HOME/default.ovpn ]]; then
+    CHOSEN_OPENVPN_CONFIG=$VPN_PROVIDER_HOME/default.ovpn
+  fi
+elif [[ -n $OPENVPN_CONFIG_URL ]]; then
   echo "Found URL to single OpenVPN config, will download and use it."
   CHOSEN_OPENVPN_CONFIG=$VPN_PROVIDER_HOME/downloaded_config.ovpn
   curl -o "$CHOSEN_OPENVPN_CONFIG" -sSL "$OPENVPN_CONFIG_URL"
@@ -83,6 +88,9 @@ if [[ -z ${CHOSEN_OPENVPN_CONFIG} ]]; then
     if [[ -x $VPN_PROVIDER_HOME/configure-openvpn.sh ]]; then
       echo "Provider ${VPN_PROVIDER^^} has a bundled setup script. Defaulting to internal config"
       VPN_CONFIG_SOURCE=internal
+    elif [[ "${OPENVPN_PROVIDER}" == "CUSTOM" ]]; then
+      echo "CUSTOM provider specified but not using default.ovpn, will try to find a valid config mounted to $VPN_PROVIDER_HOME"
+      VPN_CONFIG_SOURCE=custom
     else
       echo "No bundled config script found for ${VPN_PROVIDER^^}. Defaulting to external config"
       VPN_CONFIG_SOURCE=external
@@ -267,12 +275,19 @@ if [[ -n "${LOCAL_NETWORK-}" ]]; then
   fi
 fi
 
+# If routes-post-start.sh exists, run it
+if [[ -x /scripts/routes-post-start.sh ]]; then
+  echo "Executing /scripts/routes-post-start.sh"
+  /scripts/routes-post-start.sh "$@"
+  echo "/scripts/routes-post-start.sh returned $?"
+fi
+
 if [[ ${SELFHEAL:-false} != "false" ]]; then
   /etc/scripts/selfheal.sh &
 fi
 
 [[ ! ${OPENVPN_OPTS} =~ management ]] && OPENVPN_OPTS=${OPENVPN_OPTS}" --management ${SOCKET} unix "
-[[ ! ${OPENVPN_OPTS} =~ --verb ]] && OPENVPN_OPTS=${OPENVPN_OPTS}" --verb ${OPENVPN_LOGLEVEL} "
+[[ ! ${OPENVPN_OPTS} =~ --verb ]] && OPENVPN_OPTS=${OPENVPN_OPTS}" --verb ${OPENVPN_LOGLEVEL:-3} "
 
 # shellcheck disable=SC2086
-exec openvpn ${TRANSMISSION_CONTROL_OPTS} ${OPENVPN_OPTS} --config "${CHOSEN_OPENVPN_CONFIG}"
+exec openvpn --config ${CHOSEN_OPENVPN_CONFIG} ${TRANSMISSION_CONTROL_OPTS} ${OPENVPN_OPTS}

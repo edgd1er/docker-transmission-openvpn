@@ -1,11 +1,6 @@
 #!/bin/bash
 
-set -e
-DEBUG=${DEBUG:-"false"}
-[[ ${DEBUG} != "false" ]] && set -x
-
-#Change timzeone if set
-[[ -n ${TZ} ]] && [[ -e /usr/share/zoneinfo/${TZ} ]] && [[ -w /etc/localtime ]] && rm -f /etc/localtime && ln -s /usr/share/zoneinfo/${TZ} /etc/localtime
+[[ -f /etc/openvpn/utils.sh ]] && source /etc/openvpn/utils.sh || true
 
 # Source our persisted env variables from container startup
 . /etc/transmission/environment-variables.sh
@@ -34,6 +29,9 @@ if [[ "${ifconfig_local}" == "" ]]; then
   kill -9 $PPID
   exit 1
 fi
+
+# Re-create `--up` command arguments to maintain compatibility with old user scripts
+USER_SCRIPT_ARGS=("$dev" "$tun_mtu" "$link_mtu" "$ifconfig_local" "$ifconfig_remote" "$script_context")
 
 # If transmission-pre-start.sh exists, run it
 SCRIPT=/etc/scripts/transmission-pre-start.sh
@@ -75,21 +73,27 @@ if [[ "shift" = "$TRANSMISSION_WEB_UI" ]]; then
   export TRANSMISSION_WEB_HOME=/opt/transmission-ui/shift
 fi
 
+if [[ -z $TRANSMISSION_WEB_UI ]]; then
+  echo "Defaulting TRANSMISSION_WEB_HOME to Transmission Web Control UI"
+  export TRANSMISSION_WEB_HOME=/opt/transmission-ui/transmission-web-control
+fi
+
 echo "Updating Transmission settings.json with values from env variables"
 # Ensure TRANSMISSION_HOME is created
 mkdir -p ${TRANSMISSION_HOME}
-python3 /etc/transmission/updateSettings.py /etc/transmission/default-settings.json ${TRANSMISSION_HOME}/settings.json || exit 1
 
+. /etc/transmission/userSetup.sh
+
+su --preserve-environment ${RUN_AS} -s /usr/bin/python3 /etc/transmission/updateSettings.py /etc/transmission/default-settings.json ${TRANSMISSION_HOME}/settings.json || exit 1
 echo "sed'ing True to true"
-sed -i 's/True/true/g' ${TRANSMISSION_HOME}/settings.json
+su --preserve-environment ${RUN_AS} -c "sed -i 's/True/true/g' ${TRANSMISSION_HOME}/settings.json"
+setNewUSer
 
 if [[ ! -e "/dev/random" ]]; then
   # Avoid "Fatal: no entropy gathering module detected" error
   echo "INFO: /dev/random not found - symlink to /dev/urandom"
   ln -s /dev/urandom /dev/random
 fi
-
-. /etc/transmission/userSetup.sh
 
 if [[ "true" = "$DROP_DEFAULT_ROUTE" ]]; then
     echo "DROPPING DEFAULT ROUTE"

@@ -1,4 +1,4 @@
-#! /bin/bash
+#!/bin/bash
 
 set -e
 
@@ -7,6 +7,8 @@ set -e
 # https://www.privateinternetaccess.com/openvpn/openvpn-strong.zip
 # https://www.privateinternetaccess.com/openvpn/openvpn-tcp.zip
 # https://www.privateinternetaccess.com/openvpn/openvpn-strong-tcp.zip
+
+[[ -f /etc/openvpn/utils.sh ]] && source /etc/openvpn/utils.sh || true
 
 baseURL="https://www.privateinternetaccess.com/openvpn"
 PIA_OPENVPN_CONFIG_BUNDLE=${PIA_OPENVPN_CONFIG_BUNDLE:-"openvpn"}

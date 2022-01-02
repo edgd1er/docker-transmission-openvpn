@@ -5,6 +5,9 @@ services:
   build:
     context: .
     dockerfile: Dockerfile
+    args:
+      - LIBEVENT_VERSION=2.1.12-stable
+      - TBT_VERSION=3.00
   cap_add:
     - NET_ADMIN
   devices:

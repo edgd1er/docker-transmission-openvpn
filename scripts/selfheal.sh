@@ -1,5 +1,6 @@
 #!/bin/bash
 
+[[ -f /etc/openvpn/utils.sh ]] && source /etc/openvpn/utils.sh || true
 SELFHEAL_INTERVAL=${SELFHEAL_INTERVAL:-1m}
 SELFHEAL_TIMEOUT=${SELFHEAL_TIMEOUT:-30s}
 SELFHEAL_START_PERIOD=${SELFHEAL_START_PERIOD:-0s}

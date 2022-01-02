@@ -2,6 +2,8 @@
 
 set -e
 
+[[ -f /etc/openvpn/utils.sh ]] && source /etc/openvpn/utils.sh || true
+
 baseURL="https://www.ipvanish.com/software/configs"
 CONFIG_BUNDLE="configs.zip"
 

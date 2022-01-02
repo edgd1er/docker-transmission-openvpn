@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 
 SOCKET="unix-connect:/run/openvpn.sock"
-
-DEBUG=${DEBUG:-"false"}
-[[ ${DEBUG} != "false" ]] && set -x
+[[ -f /etc/openvpn/utils.sh ]] && source /etc/openvpn/utils.sh || true
 
 # Handle SIGTERM
 sigterm() {
