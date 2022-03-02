@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # get config name based on api recommendation + ENV Vars (NORDVPN_COUNTRY, NORDVPN_PROTOCOL, NORDVPN_CATEGORY)
 #
@@ -23,13 +23,14 @@ set -e
 
 
 #Variables
-TIME_FORMAT=$(date "+%Y-%m-%d %H:%M:%S")
+MAIN_DIR=/etc/openvpn
+[[ -f ${MAIN_DIR}/utils.sh ]] && source ${MAIN_DIR}/utils.sh || true
 nordvpn_api="https://api.nordvpn.com"
 nordvpn_dl=downloads.nordcdn.com
 nordvpn_cdn="https://${nordvpn_dl}/configs/files"
 nordvpn_doc="https://haugene.github.io/docker-transmission-openvpn/provider-specific/#nordvpn"
 possible_protocol="tcp, udp"
-VPN_PROVIDER_HOME=${VPN_PROVIDER_HOME:-/etc/openvpn/nordvpn}
+VPN_PROVIDER_HOME=${VPN_PROVIDER_HOME:-${MAIN_DIR}/nordvpn}
 
 #Nordvpn has a fetch limit, storing json to prevent hitting the limit.
 json_countries=$(curl -s ${nordvpn_api}/v1/servers/countries)
@@ -61,14 +62,21 @@ test3Incompatible_combinations(){
   log "expected a config file not respecting country filter. + message: Unable to find a server with the specified parameters, using any recommended server"
 }
 
+test4ServerName_given() {
+  unset NORDVPN_COUNTRY
+  export NORDVPN_PROTOCOL='tcp'
+  export NORDVPN_server=''
+  #get first server from US (228) with tcp
+  export NORDVPN_SERVER=$(curl -s 'https://api.nordvpn.com/v1/servers/recommendations?filters\[country_id\]=228&filters\[servers_technologies\]\[identifier\]=openvpn_tcp&limit=1' | jq -r .[].hostname)
+  log "expected a config file for server ${NORDVPN_SERVER}"
+}
+
 # Normal run functions
 log() {
-  #printf "${TIME_FORMAT} %b\n" "$*" >/dev/stderr
   printf "%b\n" "$*" >/dev/stderr
 }
 
 fatal_error() {
-  #printf "${TIME_FORMAT} \e[41mERROR:\033[0m %b\n" "$*" >&2
   printf "\e[41mERROR:\033[0m %b\n" "$*" >&2
   exit 1
 }
@@ -84,10 +92,12 @@ script_init() {
 }
 
 country_filter() {
+  NORDVPN_COUNTRY=${NORDVPN_COUNTRY:-""}
   local nordvpn_api=$1 country=(${NORDVPN_COUNTRY//[;,]/ })
+  local country_id
   if [[ ${#country[@]} -ge 1 ]]; then
     country=${country[0]//_/ }
-    local country_id=$(echo ${json_countries} | jq --raw-output ".[] |
+    country_id=$(echo ${json_countries} | jq --raw-output ".[] |
                           select( (.name|test(\"^${country}$\";\"i\")) or
                                   (.code|test(\"^${country}$\";\"i\")) ) |
                           .id" | head -n 1)
@@ -101,10 +111,12 @@ country_filter() {
 }
 
 group_filter() {
+  NORDVPN_CATEGORY=${NORDVPN_CATEGORY:-""}
   local nordvpn_api=$1 category=(${NORDVPN_CATEGORY//[;,]/ })
+  local identifier=''
   if [[ ${#category[@]} -ge 1 ]]; then
     #category=${category[0]//_/ }
-    local identifier=$(echo $json_groups | jq --raw-output ".[] |
+    identifier=$(echo $json_groups | jq --raw-output ".[] |
                           select( ( .identifier|test(\"${category}\";\"i\")) or
                                   ( .title| test(\"${category}\";\"i\")) ) |
                           .identifier" | head -n 1)
@@ -119,6 +131,7 @@ group_filter() {
 
 technology_filter() {
   local identifier
+  NORDVPN_PROTOCOL=${NORDVPN_PROTOCOL:-""}
   if [[ ${NORDVPN_PROTOCOL,,} =~ .*udp.* ]]; then
     identifier="openvpn_udp"
   elif [[ ${NORDVPN_PROTOCOL,,} =~ .*tcp.* ]]; then
@@ -145,10 +158,13 @@ select_hostname() { #TODO return multiples
 
   hostname=$(curl -s "${nordvpn_api}/v1/servers/recommendations?${filters}limit=1" | jq --raw-output ".[].hostname")
   if [[ -z ${hostname} ]]; then
-    log "Warning, unable to find a server with the specified parameters, please review your parameters"
-    hostname=$(curl -s "${nordvpn_api}/v1/servers/recommendations?limit=1" | jq --raw-output ".[].hostname")
+    log "Warning, unable to find a server with the specified parameters, please review your parameters, NORDVPN_COUNTRY=${NORDVPN_COUNTRY}, NORDVPN_CATEGORY=${NORDVPN_CATEGORY}, NORDVPN_PROTOCOL=${NORDVPN_PROTOCOL}"
+    #hostname=$(curl -s "${nordvpn_api}/v1/servers/recommendations?limit=1" | jq --raw-output ".[].hostname")
     echo ''
-    return
+  else
+    load=$(curl -s ${nordvpn_api}/server/stats/${hostname} | jq .percent)
+    log "Best server : ${hostname}, load: ${load}"
+    echo ${hostname}
   fi
 
   log "Best server : ${hostname}"
@@ -187,8 +203,8 @@ download_hostname() {
   outfile="-o "${VPN_PROVIDER_HOME}/${ovpnName}
   #when testing script outside of container, display config instead of writing it.
   if [ ! -w ${VPN_PROVIDER_HOME} ]; then
-    log "${VPN_PROVIDER_HOME} is not writable, outputing to stdout"
-    unset outfile
+    log "${VPN_PROVIDER_HOME} is not writable, outputing ${ovpnName} to stdout"
+    outfile=""
   fi
   curl -sSL ${nordvpn_cdn} ${outfile}
 }
@@ -216,32 +232,72 @@ cd "${0%/*}"
 script_init
 checkDNS
 
-log "Checking NORDPVN API responses"
-for po in  json_countries json_groups json_technologies; do
-  if [[ $(echo ${!po} | grep -c "<html>") -gt 0  ]]; then
-     msg=$(echo ${!po} | grep -oP "(?<=title>)[^<]+")
-     echo "ERROR, unexptected html content from NORDVPN servers: ${msg}"
-     sleep 30
-     exit
-  fi
-done
+if [[ -d ${VPN_PROVIDER_HOME} ]]; then
+  log "Removing existing configs in ${VPN_PROVIDER_HOME}"
+  find ${VPN_PROVIDER_HOME} -type f ! -name '*.sh' -delete
+fi
 
 possible_categories="$(echo ${json_groups} | jq -r .[].identifier | tr '\n' ', ')"
 possible_country_codes="$(echo ${json_countries} | jq -r .[].code | tr '\n' ', ')"
 possible_country_names="$(echo ${json_countries} | jq -r .[].name | tr '\n' ', ')"
 possible_protocol="$(echo ${json_technologies} | jq -r '.[] | [.identifier, .name ]' | tr '\n' ', ' | grep openvpn)"
 
+  case ${NORDVPN_TESTS} in
+  1)
+    #get recommended config when no values are given, use defaults one, display a warning with possible values
+    test1NoValues
+    ;;
+  2)
+    #When no category, get recommended config, display warning with possible values
+    test2NoCategory
+    ;;
+  3)
+    #When incompatibles combinations, no recommended config is given, exit with error log.
+    test3Incompatible_combinations
+    ;;
+  4)
+    #try to download config file for the given servername
+    test4ServerName_given
+    ;;
+  *)
+    log "Warning, tests requested but not found, expected 1,2,3 or 4, got ${NORDVPN_TESTS}"
+    exit
+    ;;
+  esac
+fi
 
-log "Removing existing configs in ${VPN_PROVIDER_HOME}"
-find ${VPN_PROVIDER_HOME} -type f ! -name '*.sh' -delete
+#get config based on server name
+NORDVPN_SERVER=${NORDVPN_SERVER:-""}
+if [[ -n ${NORDVPN_SERVER} ]]; then
+  selected=${NORDVPN_SERVER}
+  load=$(curl -s ${nordvpn_api}/server/stats/${NORDVPN_SERVER} | jq .percent 2>/dev/null)
+  log "server : ${NORDVPN_SERVER}, load: ${load:-N/A}"
+else
+  #Nordvpn has a fetch limit, storing json to prevent hitting the limit.
+  json_countries=$(curl -s ${nordvpn_api}/v1/servers/countries)
+  #groups used for NORDVPN_CATEGORY
+  json_groups=$(curl -s ${nordvpn_api}/v1/servers/groups)
+  #technologies (NORDVPN_PROTOCOL) not used as only openvpn_udp and openvpn_tcp are tested.
+  json_technologies=$(curl -s ${nordvpn_api}/v1/technologies)
 
-#Tests NORDVPN_<COUNTRY, PROTOCOL, CATEGORY> values
-#test1NoValues
-#test2NoValues
-#test3Incompatible_combinations
+  log "Checking NORDPVN API responses"
+  for po in json_countries json_groups json_technologies; do
+    if [[ $(echo ${!po} | grep -c "<html>") -gt 0 ]]; then
+      msg=$(echo ${!po} | grep -oP "(?<=title>)[^<]+")
+      echo "ERROR, unexpected html content from NORDVPN servers: ${msg}"
+      sleep 30
+      exit
+    fi
+  done
 
-#get server name from api (best recommended for NORDVPN_<> if defined)
-selected="$(select_hostname)"
+  possible_categories="$(echo ${json_groups} | jq -r .[].identifier | tr '\n' ', ')"
+  possible_country_codes="$(echo ${json_countries} | jq -r .[].code | tr '\n' ', ')"
+  possible_country_names="$(echo ${json_countries} | jq -r .[].name | tr '\n' ', ')"
+  possible_protocol="$(echo ${json_technologies} | jq -r '.[] | [.identifier, .name ]' | tr '\n' ', ' | grep openvpn)"
+
+  #get server name from api (best recommended for NORDVPN_<> if defined)
+  selected="$(select_hostname)"
+fi
 download_hostname ${selected}
 export OPENVPN_CONFIG=${selected}
 

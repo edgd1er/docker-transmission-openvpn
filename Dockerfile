@@ -2,22 +2,22 @@
 FROM debian:bullseye-slim as TransmissionUIs
 ARG LIBEVENT_VERSION=2.1.12-stable
 ARG TBT_VERSION=3.00
-#SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-#hadolint ignore=DL3018
-#RUN apt-get update && apt-get -y --no-install-recommends install build-essential automake autoconf libtool pkg-config\
-#     intltool libcurl4-openssl-dev libglib2.0-dev libevent-dev libminiupnpc-dev libgtk-3-dev libappindicator3-dev \
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+#hadolint ignore=DL3018,DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates libcurl4-openssl-dev libssl-dev \
      pkg-config build-essential checkinstall wget tar zlib1g-dev intltool jq bash
-RUN cd /var/tmp \
-    && wget -O- https://github.com/libevent/libevent/releases/download/release-${LIBEVENT_VERSION}/libevent-${LIBEVENT_VERSION}.tar.gz \
+WORKDIR /var/tmp
+#hadolint ignore=DL3003
+RUN mkdir -p /var/tmp && cd /var/tmp && echo "getting libevent ${LIBEVENT_VERSION} and transmission ${TBT_VERSION}"\
+    && wget --no-cache -O- https://github.com/libevent/libevent/releases/download/release-${LIBEVENT_VERSION}/libevent-${LIBEVENT_VERSION}.tar.gz \
     | tar zx -C /var/tmp/ && mv libevent-${LIBEVENT_VERSION} libevent-${LIBEVENT_VERSION%%-*} \
     && cd /var/tmp/libevent-${LIBEVENT_VERSION%%-*} \
     && CFLAGS="-Os -march=native" ./configure && make -j2 \
     && sed -i 's/TRANSLATE=1/TRANSLATE=0/g' "/etc/checkinstallrc" && checkinstall -y \
     && ls -alh /var/tmp/libevent-${LIBEVENT_VERSION%%-*}/ \
     && mv /var/tmp/libevent-${LIBEVENT_VERSION%%-*}/*.deb /var/tmp/
-RUN cd /var/tmp \
-    && wget -O- https://github.com/transmission/transmission-releases/raw/master/transmission-${TBT_VERSION}.tar.xz \
+#hadolint ignore=DL3003
+RUN wget --no-cache -qO- https://github.com/transmission/transmission-releases/raw/master/transmission-${TBT_VERSION}.tar.xz \
     | tar -Jx -C /var/tmp/ \
     && cd transmission-${TBT_VERSION} \
     && CFLAGS="-Os -march=native" ./configure --enable-lightweight && make -j2 && checkinstall -y -D \
@@ -25,14 +25,14 @@ RUN cd /var/tmp \
 
 RUN mkdir -p /opt/transmission-ui \
     && echo "Install Shift" \
-    && wget --no-cache -O- https://github.com/killemov/Shift/archive/master.tar.gz | tar xz -C /opt/transmission-ui \
+    && wget --no-cache -qO- https://github.com/killemov/Shift/archive/master.tar.gz | tar xz -C /opt/transmission-ui \
     && mv /opt/transmission-ui/Shift-master /opt/transmission-ui/shift \
     && echo "Install Flood for Transmission" \
-    && wget --no-cache -O- https://github.com/johman10/flood-for-transmission/releases/download/latest/flood-for-transmission.tar.gz | tar xz -C /opt/transmission-ui \
+    && wget --no-cache -qO- https://github.com/johman10/flood-for-transmission/releases/download/latest/flood-for-transmission.tar.gz | tar xz -C /opt/transmission-ui \
     && echo "Install Combustion" \
-    && wget --no-cache -O- https://github.com/Secretmapper/combustion/archive/release.tar.gz | tar xz -C /opt/transmission-ui \
+    && wget --no-cache -qO- https://github.com/Secretmapper/combustion/archive/release.tar.gz | tar xz -C /opt/transmission-ui \
     && echo "Install kettu" \
-    && wget --no-cache -O- https://github.com/endor/kettu/archive/master.tar.gz | tar xz -C /opt/transmission-ui \
+    && wget --no-cache -qO- https://github.com/endor/kettu/archive/master.tar.gz | tar xz -C /opt/transmission-ui \
     && mv /opt/transmission-ui/kettu-master /opt/transmission-ui/kettu \
     && echo "Install Transmission-Web-Control" \
     && mkdir /opt/transmission-ui/transmission-web-control \
@@ -52,7 +52,7 @@ COPY --from=TransmissionUIs /opt/transmission-ui /opt/transmission-ui
 COPY --from=TransmissionUIs /var/tmp/*.deb /var/tmp/
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-#hadolint ignore=DL3008
+#hadolint ignore=DL3008,SC2046
 RUN apt-get update && apt-get install -y --no-install-recommends software-properties-common && \
     apt-add-repository non-free && apt-get update && apt-get install -y --no-install-recommends \
     dumb-init openvpn transmission-daemon transmission-cli privoxy procps socat \
@@ -87,8 +87,8 @@ ENV OPENVPN_USERNAME=**None** \
     TRANSMISSION_WEB_UI=transmission-web-control \
     TRANSMISSION_HOME=/config/transmission-home \
     TRANSMISSION_RPC_PORT=9091 \
-    TRANSMISSION_RPC_USERNAME= \
-    TRANSMISSION_RPC_PASSWORD= \
+    TRANSMISSION_RPC_USERNAME="" \
+    TRANSMISSION_RPC_PASSWORD="" \
     TRANSMISSION_DOWNLOAD_DIR=/data/completed \
     TRANSMISSION_INCOMPLETE_DIR=/data/incomplete \
     TRANSMISSION_WATCH_DIR=/data/watch \
