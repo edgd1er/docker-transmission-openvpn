@@ -233,7 +233,7 @@ fi
 
 ## Open port to any address
 function ufwAllowPort {
-  portNum=${1}
+  portNum=${1:-''}
   if [[ "${ENABLE_UFW,,}" == "true" ]] && [[ -n "${portNum-}" ]]; then
     echo "allowing ${portNum} through the firewall"
     ufw allow ${portNum}
@@ -242,8 +242,8 @@ function ufwAllowPort {
 
 ## Open port to specific address.
 function ufwAllowPortLong {
-  portNum=${1}
-  sourceAddress=${2}
+  portNum=${1:-''}
+  sourceAddress=${2:-''}
 
   if [[ "${ENABLE_UFW,,}" == "true" ]] && [[ -n "${portNum-}" ]] && [[ -n "${sourceAddress-}" ]]; then
     echo "allowing ${sourceAddress} through the firewall to port ${portNum}"
@@ -272,10 +272,10 @@ if [[ "${ENABLE_UFW,,}" == "true" ]]; then
     PEER_PORT="${TRANSMISSION_PEER_PORT}"
   fi
 
-  ufwAllowPort ${PEER_PORT}
+  ufwAllowPort ${PEER_PORT:-''}
 
   if [[ "${WEBPROXY_ENABLED,,}" == "true" ]]; then
-    ufwAllowPort ${WEBPROXY_PORT}
+    ufwAllowPort ${WEBPROXY_PORT:-8118}
   fi
   if [[ "${UFW_ALLOW_GW_NET,,}" == "true" ]]; then
     ufwAllowPortLong ${TRANSMISSION_RPC_PORT} ${GW_CIDR}

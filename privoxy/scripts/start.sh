@@ -40,7 +40,7 @@ if [[ "${WEBPROXY_ENABLED}" = "true" ]]; then
   PROXY_CONF=/etc/privoxy/config
   echo "Privoxy: Using config file at $PROXY_CONF"
 
-  set_port "${WEBPROXY_PORT}" "${PROXY_CONF}"
+  set_port "${WEBPROXY_PORT:-8118}" "${PROXY_CONF}"
 
   /usr/sbin/privoxy --pidfile /opt/privoxy/pidfile ${PROXY_CONF}
   sleep 1 # Give it one sec to start up, or at least create the pidfile
