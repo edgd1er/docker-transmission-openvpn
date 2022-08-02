@@ -242,6 +242,7 @@ possible_country_codes="$(echo ${json_countries} | jq -r .[].code | tr '\n' ', '
 possible_country_names="$(echo ${json_countries} | jq -r .[].name | tr '\n' ', ')"
 possible_protocol="$(echo ${json_technologies} | jq -r '.[] | [.identifier, .name ]' | tr '\n' ', ' | grep openvpn)"
 
+if [[ -n ${NORDVPN_TESTS} ]]; then
   case ${NORDVPN_TESTS} in
   1)
     #get recommended config when no values are given, use defaults one, display a warning with possible values

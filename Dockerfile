@@ -17,11 +17,12 @@ RUN mkdir -p /var/tmp && cd /var/tmp && echo "getting libevent ${LIBEVENT_VERSIO
     && ls -alh /var/tmp/libevent-${LIBEVENT_VERSION%%-*}/ \
     && mv /var/tmp/libevent-${LIBEVENT_VERSION%%-*}/*.deb /var/tmp/
 #hadolint ignore=DL3003
-RUN wget --no-cache -qO- https://github.com/transmission/transmission-releases/raw/master/transmission-${TBT_VERSION}.tar.xz \
+RUN if [[ "3.00" != ${TBT_VERSION} ]]; then \
+    wget --no-cache -qO- https://github.com/transmission/transmission-releases/raw/master/transmission-${TBT_VERSION}.tar.xz \
     | tar -Jx -C /var/tmp/ \
     && cd transmission-${TBT_VERSION} \
     && CFLAGS="-Os -march=native" ./configure --enable-lightweight && make -j2 && checkinstall -y -D \
-    && cp /var/tmp/transmission-${TBT_VERSION}/*.deb /var/tmp/
+    && cp /var/tmp/transmission-${TBT_VERSION}/*.deb /var/tmp/ ; fi
 
 RUN mkdir -p /opt/transmission-ui \
     && echo "Install Shift" \
@@ -55,12 +56,15 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 #hadolint ignore=DL3008,SC2046
 RUN apt-get update && apt-get install -y --no-install-recommends software-properties-common && \
     apt-add-repository non-free && apt-get update && apt-get install -y --no-install-recommends \
-    dumb-init openvpn transmission-daemon transmission-cli privoxy procps socat \
+    dumb-init openvpn transmission-daemon transmission-cli privoxy procps socat xz-utils\
     tzdata dnsutils iputils-ping ufw openssh-client git jq curl wget unrar unzip bc \
     && echo "cpu: ${TARGETPLATFORM}" \
-    && ls -alh /var/tmp/*.deb \
+    && if [[ "3.00" != ${TBT_VERSION} ]]; then \
+    echo "Installing transmission v3 local build" && ls -alh /var/tmp/*.deb \
     && dpkg -i /var/tmp/libevent_${LIBEVENT_VERSION%%-*}-1_$(dpkg --print-architecture).deb \
     && dpkg -i /var/tmp/transmission_${TBT_VERSION}-1_$(dpkg --print-architecture).deb \
+    else echo "Installing transmission v3 from repository" \
+    && apt-get install -y --no-install-recommends transmission-daemon transmission-cli; fi \
     && ln -s /usr/share/transmission/web/style /opt/transmission-ui/transmission-web-control \
     && ln -s /usr/share/transmission/web/images /opt/transmission-ui/transmission-web-control \
     && ln -s /usr/share/transmission/web/javascript /opt/transmission-ui/transmission-web-control \
