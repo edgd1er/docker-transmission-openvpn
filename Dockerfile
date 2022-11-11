@@ -4,25 +4,33 @@ ARG LIBEVENT_VERSION=2.1.12-stable
 ARG TBT_VERSION=3.00
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 #hadolint ignore=DL3018,DL3008
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates libcurl4-openssl-dev libssl-dev \
-     pkg-config build-essential checkinstall wget tar zlib1g-dev intltool jq bash
+RUN if [[ -n ${aptcacher} ]]; then echo "Acquire::http::Proxy \"http://${aptcacher}:3142\";" >/etc/apt/apt.conf.d/01proxy; \
+        echo "Acquire::https::Proxy \"http://${aptcacher}:3142\";" >>/etc/apt/apt.conf.d/01proxy ; fi; \
+     apt-get update && apt-get install -y --no-install-recommends ca-certificates libcurl4-openssl-dev libssl-dev \
+     pkg-config build-essential checkinstall wget tar zlib1g-dev intltool jq bash cmake g++ make python3 \
+    ca-certificates cmake g++ gettext libcurl4-openssl-dev libdeflate-dev libevent-dev libfmt-dev libminiupnpc-dev \
+    libnatpmp-dev libpsl-dev libssl-dev ninja-build pkg-config xz-utils libglibmm-2.4-dev libgtkmm-3.0-dev qtbase5-dev qttools5-dev \
+    libdeflate-dev
 WORKDIR /var/tmp
 #hadolint ignore=DL3003
-RUN mkdir -p /var/tmp && cd /var/tmp && echo "getting libevent ${LIBEVENT_VERSION} and transmission ${TBT_VERSION}"\
-    && wget --no-cache -O- https://github.com/libevent/libevent/releases/download/release-${LIBEVENT_VERSION}/libevent-${LIBEVENT_VERSION}.tar.gz \
-    | tar zx -C /var/tmp/ && mv libevent-${LIBEVENT_VERSION} libevent-${LIBEVENT_VERSION%%-*} \
-    && cd /var/tmp/libevent-${LIBEVENT_VERSION%%-*} \
-    && CFLAGS="-Os -march=native" ./configure && make -j2 \
-    && sed -i 's/TRANSLATE=1/TRANSLATE=0/g' "/etc/checkinstallrc" && checkinstall -y \
-    && ls -alh /var/tmp/libevent-${LIBEVENT_VERSION%%-*}/ \
-    && mv /var/tmp/libevent-${LIBEVENT_VERSION%%-*}/*.deb /var/tmp/
+#RUN mkdir -p /var/tmp && cd /var/tmp && echo "getting libevent ${LIBEVENT_VERSION} and transmission ${TBT_VERSION}"\
+#    && wget --no-cache -O- https://github.com/libevent/libevent/releases/download/release-${LIBEVENT_VERSION}/libevent-${LIBEVENT_VERSION}.tar.gz \
+#    | tar zx -C /var/tmp/ && mv libevent-${LIBEVENT_VERSION} libevent-${LIBEVENT_VERSION%%-*} \
+#    && cd /var/tmp/libevent-${LIBEVENT_VERSION%%-*} \
+#    && CFLAGS="-Os -march=native" ./configure && make -j2 \
+#    && sed -i 's/TRANSLATE=1/TRANSLATE=0/g' "/etc/checkinstallrc" && checkinstall -y \
+ #   && ls -alh /var/tmp/libevent-${LIBEVENT_VERSION%%-*}/ \
+ #   && mv /var/tmp/libevent-${LIBEVENT_VERSION%%-*}/*.deb /var/tmp/
 #hadolint ignore=DL3003
-RUN if [[ "3.00" != ${TBT_VERSION} ]]; then \
-    wget --no-cache -qO- https://github.com/transmission/transmission-releases/raw/master/transmission-${TBT_VERSION}.tar.xz \
+RUN if [[ "3.00" != ${TBT_VERSION} ]]; then wget --no-cache -qO- https://github.com/transmission/transmission-releases/raw/master/transmission-${TBT_VERSION}.tar.xz \
     | tar -Jx -C /var/tmp/ \
-    && cd transmission-${TBT_VERSION} \
-    && CFLAGS="-Os -march=native" ./configure --enable-lightweight && make -j2 && checkinstall -y -D \
-    && cp /var/tmp/transmission-${TBT_VERSION}/*.deb /var/tmp/ ; fi
+    && cd "transmission-${TBT_VERSION}" \
+    && ls -alh /var/tmp/transmission-${TBT_VERSION}/ \
+    && mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo .. \
+    #&& if [[ -f ./configure ]]; then CFLAGS="-Os -march=native" ./configure --enable-lightweight ; make -j2 ; checkinstall -y -D \
+    # && cp /var/tmp/transmission-${TBT_VERSION}/*.deb /var/tmp/ ;fi \
+    && make \
+    && make install ; fi
 
 RUN mkdir -p /opt/transmission-ui \
     && echo "Install Shift" \
@@ -51,20 +59,25 @@ VOLUME /config
 
 COPY --from=TransmissionUIs /opt/transmission-ui /opt/transmission-ui
 COPY --from=TransmissionUIs /var/tmp/*.deb /var/tmp/
+COPY --from=TransmissionUIs /usr/local/bin/ /usr/local/bin/
+COPY --from=TransmissionUIs /usr/local/share/ /usr/local/share/
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 #hadolint ignore=DL3008,SC2046
-RUN apt-get update && apt-get install -y --no-install-recommends software-properties-common && \
-    apt-add-repository non-free && apt-get update && apt-get install -y --no-install-recommends \
-    dumb-init openvpn transmission-daemon transmission-cli privoxy procps socat xz-utils\
+RUN  if [[ -n ${aptcacher} ]]; then echo "Acquire::http::Proxy \"http://${aptcacher}:3142\";" >/etc/apt/apt.conf.d/01proxy; \
+    echo "Acquire::https::Proxy \"http://${aptcacher}:3142\";" >>/etc/apt/apt.conf.d/01proxy ; fi; \
+    apt-get update && apt-get install -y --no-install-recommends software-properties-common \
+    && apt-add-repository non-free && apt-get update && apt-get install -y --no-install-recommends \
+    dumb-init openvpn privoxy procps socat libevent-2.1-7  libnatpmp1 libminiupnpc17 \
     tzdata dnsutils iputils-ping ufw openssh-client git jq curl wget unrar unzip bc \
-    && echo "cpu: ${TARGETPLATFORM}" \
-    && if [[ "3.00" != ${TBT_VERSION} ]]; then \
-    echo "Installing transmission v3 local build" && ls -alh /var/tmp/*.deb \
-    && dpkg -i /var/tmp/libevent_${LIBEVENT_VERSION%%-*}-1_$(dpkg --print-architecture).deb \
-    && dpkg -i /var/tmp/transmission_${TBT_VERSION}-1_$(dpkg --print-architecture).deb \
-    else echo "Installing transmission v3 from repository" \
-    && apt-get install -y --no-install-recommends transmission-daemon transmission-cli; fi \
+    && echo "cpu: ${TARGETPLATFORM}"
+#    && ls -alh /var/tmp/*.deb \
+#    && dpkg -i /var/tmp/libevent_${LIBEVENT_VERSION%%-*}-1_$(dpkg --print-architecture).deb
+RUN if [[ "3.00" == ${TBT_VERSION} ]]; then \
+    echo "Installing transmission v3" \
+    && apt-get install -y --no-install-recommends transmission-daemon transmission-cli \
+    && dpkg -i /var/tmp/transmission_${TBT_VERSION}-1_$(dpkg --print-architecture).deb ; else \
+    echo "Installing transmission v4" ; fi \
     && ln -s /usr/share/transmission/web/style /opt/transmission-ui/transmission-web-control \
     && ln -s /usr/share/transmission/web/images /opt/transmission-ui/transmission-web-control \
     && ln -s /usr/share/transmission/web/javascript /opt/transmission-ui/transmission-web-control \

@@ -23,7 +23,7 @@ lint: ## lint dockerfile
 
 build: ## build container
 		@echo "build image ..."
-		docker buildx build --progress auto --load -f Dockerfile --build-arg LIBEVENT_VERSION=2.1.12-stable --build-arg TBT_VERSION=3.00 -t edgd1er/transmission-openvpn .
+		docker buildx build --progress auto --load -f Dockerfile --build-arg aptCacher=192.168.53.208 --build-arg LIBEVENT_VERSION=2.1.12-stable --build-arg TBT_VERSION=4.0.0-beta.1+r98cf7d9b3c -t edgd1er/transmission-openvpn .
 
 buildnc: ## build container with no cache
 		@echo "build image without cache ..."

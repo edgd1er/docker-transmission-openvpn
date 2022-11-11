@@ -107,8 +107,13 @@ else
   LOGFILE=${TRANSMISSION_HOME}/transmission.log
 fi
 
+if [[ -f /usr/local/bin/transmission-daemon ]]; then
+  transbin='/usr/local/bin'
+else
+  transbin='/usr/bin'
+fi
 echo "STARTING TRANSMISSION"
-exec su --preserve-environment ${RUN_AS} -s /bin/bash -c "/usr/bin/transmission-daemon -g ${TRANSMISSION_HOME} --logfile $LOGFILE" &
+exec su --preserve-environment ${RUN_AS} -s /bin/bash -c "${transbin}/transmission-daemon -g ${TRANSMISSION_HOME} --logfile $LOGFILE" &
 
 # Configure port forwarding if applicable
 if [[ -x /etc/openvpn/${OPENVPN_PROVIDER,,}/update-port.sh && (-z $DISABLE_PORT_UPDATER || "false" = "$DISABLE_PORT_UPDATER") ]]; then

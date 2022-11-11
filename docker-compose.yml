@@ -1,7 +1,7 @@
 version: '2'
 services:
  transmission:
-  image: haugene/transmission-openvpn
+  image: edgd1er/transmission-openvpn
   cap_add:
     - NET_ADMIN
   #devices:
