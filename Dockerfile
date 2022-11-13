@@ -1,38 +1,6 @@
-# syntax=docker/dockerfile:1
-FROM debian:bullseye-slim as TransmissionUIs
-ARG LIBEVENT_VERSION=2.1.12-stable
-ARG TBT_VERSION=3.00
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+FROM alpine:3.13 as TransmissionUIs
 #hadolint ignore=DL3018,DL3008
-RUN if [[ -n ${aptcacher} ]]; then echo "Acquire::http::Proxy \"http://${aptcacher}:3142\";" >/etc/apt/apt.conf.d/01proxy; \
-        echo "Acquire::https::Proxy \"http://${aptcacher}:3142\";" >>/etc/apt/apt.conf.d/01proxy ; fi; \
-     apt-get update && apt-get install -y --no-install-recommends ca-certificates libcurl4-openssl-dev libssl-dev \
-     pkg-config build-essential checkinstall wget tar zlib1g-dev intltool jq bash cmake g++ make python3 \
-    ca-certificates cmake g++ gettext libcurl4-openssl-dev libdeflate-dev libevent-dev libfmt-dev libminiupnpc-dev \
-    libnatpmp-dev libpsl-dev libssl-dev ninja-build pkg-config xz-utils libglibmm-2.4-dev libgtkmm-3.0-dev qtbase5-dev qttools5-dev \
-    libdeflate-dev
-WORKDIR /var/tmp
-#hadolint ignore=DL3003
-#RUN mkdir -p /var/tmp && cd /var/tmp && echo "getting libevent ${LIBEVENT_VERSION} and transmission ${TBT_VERSION}"\
-#    && wget --no-cache -O- https://github.com/libevent/libevent/releases/download/release-${LIBEVENT_VERSION}/libevent-${LIBEVENT_VERSION}.tar.gz \
-#    | tar zx -C /var/tmp/ && mv libevent-${LIBEVENT_VERSION} libevent-${LIBEVENT_VERSION%%-*} \
-#    && cd /var/tmp/libevent-${LIBEVENT_VERSION%%-*} \
-#    && CFLAGS="-Os -march=native" ./configure && make -j2 \
-#    && sed -i 's/TRANSLATE=1/TRANSLATE=0/g' "/etc/checkinstallrc" && checkinstall -y \
- #   && ls -alh /var/tmp/libevent-${LIBEVENT_VERSION%%-*}/ \
- #   && mv /var/tmp/libevent-${LIBEVENT_VERSION%%-*}/*.deb /var/tmp/
-#hadolint ignore=DL3003
-RUN if [[ "3.00" != ${TBT_VERSION} ]]; then wget --no-cache -qO- https://github.com/transmission/transmission-releases/raw/master/transmission-${TBT_VERSION}.tar.xz \
-    | tar -Jx -C /var/tmp/ \
-    && cd "transmission-${TBT_VERSION}" \
-    && ls -alh /var/tmp/transmission-${TBT_VERSION}/ \
-    && mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo .. \
-    #&& if [[ -f ./configure ]]; then CFLAGS="-Os -march=native" ./configure --enable-lightweight ; make -j2 ; checkinstall -y -D \
-    # && cp /var/tmp/transmission-${TBT_VERSION}/*.deb /var/tmp/ ;fi \
-    && make \
-    && make install ; fi
-
-RUN mkdir -p /opt/transmission-ui \
+RUN apk --no-cache add curl jq && mkdir -p /opt/transmission-ui \
     && echo "Install Shift" \
     && wget --no-cache -qO- https://github.com/killemov/Shift/archive/master.tar.gz | tar xz -C /opt/transmission-ui \
     && mv /opt/transmission-ui/Shift-master /opt/transmission-ui/shift \
@@ -47,10 +15,91 @@ RUN mkdir -p /opt/transmission-ui \
     && mkdir /opt/transmission-ui/transmission-web-control \
     && wget --no-cache -qO- "$(wget --no-cache -qO- https://api.github.com/repos/ronggang/transmission-web-control/releases/latest | jq --raw-output '.tarball_url')" | tar -C /opt/transmission-ui/transmission-web-control/ --strip-components=2 -xz
 
-FROM debian:bullseye-slim
+FROM debian:bullseye-slim as base
+RUN  if [[ -n ${aptcacher} ]]; then echo "Acquire::http::Proxy \"http://${aptcacher}:3142\";" >/etc/apt/apt.conf.d/01proxy; \
+    echo "Acquire::https::Proxy \"http://${aptcacher}:3142\";" >>/etc/apt/apt.conf.d/01proxy ; fi; \
+    apt-get update && apt-get install -y --no-install-recommends software-properties-common \
+    && apt-add-repository non-free && apt-get update && apt-get install -y --no-install-recommends \
+    dumb-init openvpn privoxy procps socat libevent-2.1-7  libnatpmp1 libminiupnpc17 \
+    tzdata dnsutils iputils-ping ufw openssh-client git jq curl wget unrar unzip bc
+
+FROM base as devbase
+ARG TBT_VERSION=3.00
+ARG LIBEVENT_VERSION=2.1.12-stable
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+#hadolint ignore=DL3018,DL3008
+RUN if [[ -n ${aptcacher} ]]; then echo "Acquire::http::Proxy \"http://${aptcacher}:3142\";" >/etc/apt/apt.conf.d/01proxy; \
+        echo "Acquire::https::Proxy \"http://${aptcacher}:3142\";" >>/etc/apt/apt.conf.d/01proxy ; fi; \
+     apt-get update && apt-get install -y --no-install-recommends ca-certificates libcurl4-openssl-dev libssl-dev \
+     pkg-config build-essential checkinstall wget tar zlib1g-dev intltool jq bash cmake g++ make python3 \
+    gettext libdeflate-dev libevent-dev libfmt-dev libminiupnpc-dev \
+    libnatpmp-dev libpsl-dev ninja-build xz-utils clang-format clang clang-tidy git
+
+#hadolint ignore=DL3003
+#RUN mkdir -p /var/tmp && cd /var/tmp && echo "getting libevent ${LIBEVENT_VERSION} and transmission ${TBT_VERSION}"\
+#    && wget --no-cache -O- https://github.com/libevent/libevent/releases/download/release-${LIBEVENT_VERSION}/libevent-${LIBEVENT_VERSION}.tar.gz \
+#    | tar zx -C /var/tmp/ && mv libevent-${LIBEVENT_VERSION} libevent-${LIBEVENT_VERSION%%-*} \
+#    && cd /var/tmp/libevent-${LIBEVENT_VERSION%%-*} \
+#    && CFLAGS="-Os -march=native" ./configure && make -j2 \
+#    && sed -i 's/TRANSLATE=1/TRANSLATE=0/g' "/etc/checkinstallrc" && checkinstall -y \
+ #   && ls -alh /var/tmp/libevent-${LIBEVENT_VERSION%%-*}/ \
+ #   && mv /var/tmp/libevent-${LIBEVENT_VERSION%%-*}/*.deb /var/tmp/
+WORKDIR /var/tmp
+#hadolint ignore=DL3003
+RUN if [[ "dev" == ${TBT_VERSION} ]]; then \
+    echo "Fetching and building ${TBT_VERSION} of tranmission" \
+    && git clone --depth 1 --branch main https://github.com/transmission/transmission \
+    && cd transmission  \
+    && git submodule update --init && mkdir build \
+    && cd build && cmake \
+        -S src \
+        -B obj \
+        -G Ninja \
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+        -DCMAKE_CXX_COMPILER='/usr/bin/clang++' \
+        -DCMAKE_CXX_FLAGS='-gdwarf-4 -fno-omit-frame-pointer -fsanitize=address,leak,undefined' \
+        -DCMAKE_C_COMPILER='/usr/bin/clang' \
+        -DCMAKE_C_FLAGS='-gdwarf-4 -fno-omit-frame-pointer -fsanitize=address,leak,undefined' \
+        -DCMAKE_INSTALL_PREFIX=pfx \
+        -DENABLE_CLI=ON \
+        -DENABLE_DAEMON=ON \
+        -DENABLE_GTK=OFF \
+        -DENABLE_MAC=OFF \
+        -DENABLE_QT=OFF \
+        -DENABLE_TESTS=ON \
+        -DENABLE_UTILS=ON \
+        -DENABLE_WEB=ON \
+        -DRUN_CLANG_TIDY=ON .. \
+        && cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo .. \
+        # && cp /var/tmp/transmission-${TBT_VERSION}/*.deb /var/tmp/ ;fi \
+        && make \
+        && make install \
+        ; fi
+
+#build from tagged version
+RUN if [[ ${TBT_VERSION} =~ [34] ]]; then \
+    [[ ${TBT_VERSION} =~ 3 ]] && URL=https://github.com/transmission/transmission-releases/raw/master/transmission-3.00.tar.xz \
+    || URL=https://github.com/transmission/transmission-releases/raw/master/transmission-4.0.0-beta.1+r98cf7d9b3c.tar.xz \
+    && echo "Fetching and building ${URL##*/} of tranmission" \
+    && mkdir -p /var/tmp/transmission \
+    && wget --no-cache -O- ${URL} | tar -Jx -C /var/tmp/transmission --strip-components=1 \
+    && cd transmission && mkdir build && cd build \
+    && ls -al .. \
+    && pwd \
+    && cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo .. \
+    && make \
+    && make install \
+    ;fi
+
+RUN cd transmission/build \
+    && echo "version: ${TBT_VERSION} / ${TBT_VERSION##*v}" \
+    && if [[ dev == ${TBT_VERSION}  ]]; then TBT_VERSION=v4; fi \
+    && checkinstall -y -D --pkgname transmission  --pakdir /var/tmp --pkgversion="${TBT_VERSION##*v}.0.0"
+
+
+FROM base
 
 ARG DEBIAN_FRONTEND=noninteractive
-ARG LIBEVENT_VERSION=2.1.12-stable
 ARG TBT_VERSION=3.00
 ARG TARGETPLATFORM
 
@@ -58,31 +107,25 @@ VOLUME /data
 VOLUME /config
 
 COPY --from=TransmissionUIs /opt/transmission-ui /opt/transmission-ui
-COPY --from=TransmissionUIs /var/tmp/*.deb /var/tmp/
-COPY --from=TransmissionUIs /usr/local/bin/ /usr/local/bin/
-COPY --from=TransmissionUIs /usr/local/share/ /usr/local/share/
+COPY --from=devbase /var/tmp/*.deb /var/tmp/
+#COPY --from=devbase /usr/local/bin/ /usr/local/bin/
+#COPY --from=devbase /usr/local/share/ /usr/local/share/
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 #hadolint ignore=DL3008,SC2046
-RUN  if [[ -n ${aptcacher} ]]; then echo "Acquire::http::Proxy \"http://${aptcacher}:3142\";" >/etc/apt/apt.conf.d/01proxy; \
-    echo "Acquire::https::Proxy \"http://${aptcacher}:3142\";" >>/etc/apt/apt.conf.d/01proxy ; fi; \
-    apt-get update && apt-get install -y --no-install-recommends software-properties-common \
-    && apt-add-repository non-free && apt-get update && apt-get install -y --no-install-recommends \
-    dumb-init openvpn privoxy procps socat libevent-2.1-7  libnatpmp1 libminiupnpc17 \
-    tzdata dnsutils iputils-ping ufw openssh-client git jq curl wget unrar unzip bc \
-    && echo "cpu: ${TARGETPLATFORM}"
-#    && ls -alh /var/tmp/*.deb \
-#    && dpkg -i /var/tmp/libevent_${LIBEVENT_VERSION%%-*}-1_$(dpkg --print-architecture).deb
-RUN if [[ "3.00" == ${TBT_VERSION} ]]; then \
-    echo "Installing transmission v3" \
-    && apt-get install -y --no-install-recommends transmission-daemon transmission-cli \
-    && dpkg -i /var/tmp/transmission_${TBT_VERSION}-1_$(dpkg --print-architecture).deb ; else \
-    echo "Installing transmission v4" ; fi \
+
+RUN echo "cpu: ${TARGETPLATFORM}" \
+    && if [ -f /var/tmp/transmission_*_$(dpkg --print-architecture).deb ]; then \
+    ls -alh /var/tmp/*.deb \
+    && echo "Installing transmission ${TBT_VERSION}" \
+    && dpkg -i /var/tmp/transmission_*_$(dpkg --print-architecture).deb  ;\
+    else echo "Installing transmission from repository" \
+    && apt-get install -y --no-install-recommends transmission-daemon transmission-client; fi\
     && ln -s /usr/share/transmission/web/style /opt/transmission-ui/transmission-web-control \
     && ln -s /usr/share/transmission/web/images /opt/transmission-ui/transmission-web-control \
     && ln -s /usr/share/transmission/web/javascript /opt/transmission-ui/transmission-web-control \
     && ln -s /usr/share/transmission/web/index.html /opt/transmission-ui/transmission-web-control/index.original.html \
-    && rm -rf /tmp/* /var/tmp/* /var/lib/apt/lists/* \
+    #&& rm -rf /tmp/* /var/tmp/* /var/lib/apt/lists/* \
     && groupmod -g 1000 users \
     && useradd -u 911 -U -d /config -s /bin/false abc \
     && usermod -G users abc

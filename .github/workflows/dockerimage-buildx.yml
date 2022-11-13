@@ -4,10 +4,16 @@ on:
   workflow_dispatch:
   pull_request:
     branches:
+      - master
       - tbt_v4
+      - tbt_v3
+      - dev
   push:
     branches:
+      - master
       - tbt_v4
+      - tbt_v3
+      - dev
     tags:
 
     paths-ignore:
@@ -21,7 +27,7 @@ env:
   REVISION: ${{  github.ref_name }}
   TAG: ${{  github.ref_name }}
   LIBEVENT_VERSION: "2.1.12-stable"
-  TBT_VERSION: "4.0.0-beta.1+r98cf7d9b3c"
+  TBT_VERSION: ${{  github.ref_name }}
 
 jobs:
   buildx:
@@ -66,7 +72,7 @@ jobs:
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
           # removed linux/arm64
-          platforms: linux/amd64,linux/arm/v7,linux/arm/v6,linux/arm64
+          platforms: linux/amd64,linux/arm/v7,linux/arm64
           push: true
           build-args: |
             REVISION=${{ env.REVISION }}

@@ -21,9 +21,17 @@ lint: ## lint dockerfile
 		@echo "lint dockerfile ..."
 		docker run --rm -i hadolint/hadolint < ./Dockerfile
 
-build: ## build container
-		@echo "build image ..."
-		docker buildx build --progress auto --load -f Dockerfile --build-arg aptCacher=192.168.53.208 --build-arg LIBEVENT_VERSION=2.1.12-stable --build-arg TBT_VERSION=4.0.0-beta.1+r98cf7d9b3c -t edgd1er/transmission-openvpn .
+build3: ## build container
+		@echo "build image with transmission v3 ..."
+		docker buildx build --progress auto --load -f Dockerfile --build-arg aptCacher=192.168.53.208 --build-arg LIBEVENT_VERSION=2.1.12-stable --build-arg TBT_VERSION=3 -t edgd1er/transmission-openvpn:tbt_v3 .
+
+build4: ## build container
+		@echo "build image with transmission v4 tagged..."
+		docker buildx build --progress auto --load -f Dockerfile --build-arg aptCacher=192.168.53.208 --build-arg LIBEVENT_VERSION=2.1.12-stable --build-arg TBT_VERSION=4 -t edgd1er/transmission-openvpn:tbt_v4 .
+
+builddev: ## build container
+		@echo "build image with dev versions ..."
+		docker buildx build --progress auto --load -f Dockerfile --build-arg aptCacher=192.168.53.208 --build-arg LIBEVENT_VERSION=2.1.12-stable --build-arg TBT_VERSION=dev -t edgd1er/transmission-openvpn:dev .
 
 buildnc: ## build container with no cache
 		@echo "build image without cache ..."
