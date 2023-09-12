@@ -1,8 +1,12 @@
 #!/bin/bash
+
+set -e -u -o pipefail
+
 # Source our persisted env variables from container startup
 . /etc/transmission/environment-variables.sh
-source /etc/openvpn/utils.sh
+[[ -f /etc/openvpn/utils.sh ]] && source /etc/openvpn/utils.sh || true
 
+USER_SCRIPT_ARGS=("${dev:-}" "${tun_mtu:-}" "${link_mtu:-}" "${ifconfig_local:-}" "${ifconfig_remote:-}" "${script_context:-}")
 # Update config status to success.
 CONFIG_STATUS=$(sed -n "s/^; status \(.*\)/\1/p" "${CONFIG}")
 if [[ -n "${CONFIG_STATUS}" ]]; then
@@ -19,7 +23,7 @@ if [[ "${PEER_DNS,,}" == "true" ]]; then
         SEARCH=
         i=1
         while true ; do
-                eval opt=\$foreign_option_${i}
+                eval opt=\${foreign_option_${i}:-}
                 [ -z "${opt}" ] && break
                 if [ "${opt}" != "${opt#dhcp-option DOMAIN *}" ] ; then
                         if [ -z "${DOMAIN}" ] ; then
@@ -61,7 +65,21 @@ if [[ "${PEER_DNS,,}" == "true" ]]; then
         fi
 fi
 
-/etc/transmission/start.sh
-[[ -f /opt/privoxy/start.sh && -x /opt/privoxy/start.sh ]] && /opt/privoxy/start.sh
+#change openvpn verbose if needed
+if [[ -n ${OPENVPN_LOGLEVEL} ]]; then
+  echo "verb ${OPENVPN_LOGLEVEL}"|socat -s - unix-connect:/run/openvpn.sock
+fi
+
+#check dnsleak
+chmod 755 /etc/scripts/*.sh /opt/privoxy/*.sh /opt/transmission-ui/transmission-web-control/*.sh
+# dnsleaktest rewrite exit code, if file is not found then it's ok.
+#[[ -f /etc/scripts/dnsleaktest.sh ]] && /etc/scripts/dnsleaktest.sh 2>&1 || true
+
+#/etc/transmission/start.sh "$@"
+/etc/transmission/start.sh "${USER_SCRIPT_ARGS[*]}"
+
+[[ -f /opt/privoxy/start.sh ]] && chmod +x /opt/privoxy/start.sh && /opt/privoxy/start.sh
+
+sleep 2
 
 exit 0
