@@ -40,7 +40,7 @@ find /etc/openvpn/ovpn -type f ! -name "*.sh" -delete
 echo "deleting temp folder"
 rm -rf /tmp/ovpnxtract/
 echo "creating temp folder"
-mkdir /tmp/ovpnxtract/
+[[ ! -d /tmp/ovpnxtract/ ]] && mkdir /tmp/ovpnxtract/ || true
 echo "entering temp folder"
 cd /tmp/ovpnxtract/
 echo "cloning contrib git"
@@ -50,6 +50,13 @@ mv /tmp/ovpnxtract/vpn-configs-contrib/openvpn/ovpn/* /etc/openvpn/ovpn
 echo "deleting temp folder"
 rm -rf /tmp/ovpnxtract/
 
+#test repo
+#wget -c https://github.com/derekcentrico/vpn-configs-contrib-ovpnwork/archive/refs/heads/main.zip -P /tmp/
+#unzip /tmp/main.zip "vpn-configs-contrib-ovpnwork-main/openvpn/ovpn/*" -d /tmp/
+#mv /tmp/vpn-configs-contrib-ovpnwork-main/openvpn/ovpn/* /etc/openvpn/ovpn
+#rm /tmp/vpn-configs-contrib-ovpnwork-main/openvpn/ovpn/ -R
+
+rm /tmp/main.zip
 
 
 #pattern=$OVPN_CONNECTION.$OVPN_COUNTRY.$OVPN_CITY.$OVPN_PROTOCOL
