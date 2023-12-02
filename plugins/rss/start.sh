@@ -6,8 +6,12 @@
 # 1. Mount a custom config file to be used
 # 2. Use the built in template that supports one feed with regex filter
 #
+
+set -e -u -o pipefail
+
+# Source our persisted env variables from container startup
 . /etc/transmission/environment-variables.sh
-source /etc/openvpn/utils.sh
+[[ -f /etc/openvpn/utils.sh ]] && source /etc/openvpn/utils.sh || true
 
 if [ -f /etc/transmission-rss.conf ] ; then
   echo "Found mounted /etc/transmission-rss.conf file"

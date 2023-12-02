@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -x
+set -e -u -o pipefail
 
 bold=$(tput bold)
 normal=$(tput sgr0)
