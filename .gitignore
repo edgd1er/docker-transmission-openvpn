@@ -1,0 +1,7 @@
+.idea/
+docker-compose-*.yml
+openvpn_creds
+docker-compose.yml
+docker-compose-dev.yml
+your/
+/docker-transmission-openvpn.iml

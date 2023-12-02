@@ -2,9 +2,9 @@
 
 set -e
 
-source /etc/openvpn/utils.sh
+[[ -f /etc/openvpn/utils.sh ]] && source /etc/openvpn/utils.sh || true
 
-baseURL="https://configs.ipvanish.com/configs"
+baseURL="https://www.ipvanish.com/software/configs"
 CONFIG_BUNDLE="configs.zip"
 
 if [ -z "$VPN_PROVIDER_HOME" ]; then
