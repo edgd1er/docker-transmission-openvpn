@@ -4,9 +4,18 @@
 # Get some initial setup out of the way.
 ##
 
-set -e
+set -e -u -o pipefail
 
-source /etc/openvpn/utils.sh
+SOCKET="/run/openvpn.sock"
+[[ -f /etc/openvpn/utils.sh ]] && source /etc/openvpn/utils.sh || true
+OPENVPN_LOGLEVEL=${OPENVPN_LOGLEVEL:-0}
+OPENVPN_OPTS=${OPENVPN_OPTS:-""}
+
+#Change timzeone if set
+if [[ -n ${TZ:-''} ]] && [[ -e /usr/share/zoneinfo/${TZ:-''} ]] && [[ -w /etc/localtime ]]; then
+  rm -f /etc/localtime
+  ln -s /usr/share/zoneinfo/${TZ} /etc/localtime
+fi
 
 if [[ -n "$REVISION" ]]; then
   echo "Starting container with revision: $REVISION"
@@ -30,10 +39,11 @@ if [ -d "/data/transmission-home" ]; then
 fi
 
 # If openvpn-pre-start.sh exists, run it
-if [[ -x /scripts/openvpn-pre-start.sh ]]; then
-  echo "Executing /scripts/openvpn-pre-start.sh"
-  /scripts/openvpn-pre-start.sh "$@"
-  echo "/scripts/openvpn-pre-start.sh returned $?"
+SCRIPT=/etc/scripts/openvpn-pre-start.sh
+if [[ -x ${SCRIPT} ]]; then
+  echo "Executing ${SCRIPT}"
+  ${SCRIPT} "$@"
+  echo "${SCRIPT} returned $?"
 fi
 
 # Allow for overriding the DNS used directly in the /etc/resolv.conf
@@ -71,7 +81,7 @@ export VPN_PROVIDER_HOME="/etc/openvpn/${VPN_PROVIDER}"
 mkdir -p "$VPN_PROVIDER_HOME"
 
 # Make sure that we have enough information to start OpenVPN
-if [[ -z $OPENVPN_CONFIG_URL ]] && [[ "${OPENVPN_PROVIDER}" == "**None**" ]] || [[ -z "${OPENVPN_PROVIDER-}" ]]; then
+if [[ -z ${OPENVPN_CONFIG_URL:-''} ]] && [[ "${OPENVPN_PROVIDER}" == "**None**" ]] || [[ -z "${OPENVPN_PROVIDER-}" ]]; then
   echo "ERROR: Cannot determine where to find your OpenVPN config. Both OPENVPN_CONFIG_URL and OPENVPN_PROVIDER is unset."
   echo "You have to either provide a URL to the config you want to use, or set a configured provider that will download one for you."
   echo "Exiting..." && exit 1
@@ -81,13 +91,13 @@ if [[ "${VPN_PROVIDER}" == "custom" ]]; then
   if [[ -f $VPN_PROVIDER_HOME/default.ovpn ]]; then
     CHOSEN_OPENVPN_CONFIG=$VPN_PROVIDER_HOME/default.ovpn
   fi
-elif [[ -n $OPENVPN_CONFIG_URL ]]; then
+elif [[ -n ${OPENVPN_CONFIG_URL:-''} ]]; then
   echo "Found URL to single OpenVPN config, will download and use it."
   CHOSEN_OPENVPN_CONFIG=$VPN_PROVIDER_HOME/downloaded_config.ovpn
   curl -o "$CHOSEN_OPENVPN_CONFIG" -sSL "$OPENVPN_CONFIG_URL"
 fi
 
-if [[ -z ${CHOSEN_OPENVPN_CONFIG} ]]; then
+if [[ -z ${CHOSEN_OPENVPN_CONFIG:-''} ]]; then
 
   # Support pulling configs from external config sources
   VPN_CONFIG_SOURCE="${VPN_CONFIG_SOURCE:-auto}"
@@ -99,7 +109,7 @@ if [[ -z ${CHOSEN_OPENVPN_CONFIG} ]]; then
     if [[ -f $VPN_PROVIDER_HOME/configure-openvpn.sh ]]; then
       echo "Provider ${VPN_PROVIDER^^} has a bundled setup script. Defaulting to internal config"
       VPN_CONFIG_SOURCE=internal
-    elif [[ "${VPN_PROVIDER}" == "custom" ]]; then
+    elif [[ "${OPENVPN_PROVIDER}" == "CUSTOM" ]]; then
       echo "CUSTOM provider specified but not using default.ovpn, will try to find a valid config mounted to $VPN_PROVIDER_HOME"
       VPN_CONFIG_SOURCE=custom
     else
@@ -229,9 +239,9 @@ echo "${TRANSMISSION_RPC_PASSWORD}" >> /config/transmission-credentials.txt
 export CONFIG="${CHOSEN_OPENVPN_CONFIG}"
 python3 /etc/openvpn/persistEnvironment.py /etc/transmission/environment-variables.sh
 
-TRANSMISSION_CONTROL_OPTS="--script-security 2 --route-up /etc/openvpn/tunnelUp.sh --route-pre-down /etc/openvpn/tunnelDown.sh"
+TRANSMISSION_CONTROL_OPTS="--script-security 2 --up-delay --route-up /etc/openvpn/tunnelUp.sh --route-pre-down /etc/openvpn/tunnelDown.sh"
 
-## If we use UFW or the LOCAL_NETWORK we need to grab network config info
+## If we use UFW or the LOCAL_NETWORK we need to grabb network config info
 if [[ "${ENABLE_UFW,,}" == "true" ]] || [[ -n "${LOCAL_NETWORK-}" ]]; then
   eval $(/sbin/ip route list match 0.0.0.0 | awk '{if($5!="tun0"){print "GW="$3"\nINT="$5; exit}}')
   ## IF we use UFW_ALLOW_GW_NET along with ENABLE_UFW we need to know what our netmask CIDR is
@@ -242,7 +252,7 @@ fi
 
 ## Open port to any address
 function ufwAllowPort {
-  portNum=${1}
+  portNum=${1:-''}
   if [[ "${ENABLE_UFW,,}" == "true" ]] && [[ -n "${portNum-}" ]]; then
     echo "allowing ${portNum} through the firewall"
     if [[ $portNum == *":"* ]];
@@ -257,8 +267,8 @@ function ufwAllowPort {
 
 ## Open port to specific address.
 function ufwAllowPortLong {
-  portNum=${1}
-  sourceAddress=${2}
+  portNum=${1:-''}
+  sourceAddress=${2:-''}
 
   if [[ "${ENABLE_UFW,,}" == "true" ]] && [[ -n "${portNum-}" ]] && [[ -n "${sourceAddress-}" ]]; then
     echo "allowing ${sourceAddress} through the firewall to port ${portNum}"
@@ -292,10 +302,10 @@ set +u
     PEER_PORT="${TRANSMISSION_PEER_PORT}"
   fi
 
-  ufwAllowPort ${PEER_PORT}
+  ufwAllowPort ${PEER_PORT:-''}
 
   if [[ "${WEBPROXY_ENABLED,,}" == "true" ]]; then
-    ufwAllowPort ${WEBPROXY_PORT}
+    ufwAllowPort ${WEBPROXY_PORT:-8118}
   fi
   if [[ "${UFW_ALLOW_GW_NET,,}" == "true" ]]; then
     ufwAllowPortLong ${TRANSMISSION_RPC_PORT} ${GW_CIDR}
@@ -344,5 +354,8 @@ if [[ ${SELFHEAL:-false} != "false" ]]; then
   /etc/scripts/selfheal.sh &
 fi
 
+[[ ! ${OPENVPN_OPTS} =~ management ]] && OPENVPN_OPTS=${OPENVPN_OPTS}" --management ${SOCKET} unix "
+[[ ! ${OPENVPN_OPTS} =~ --verb ]] && OPENVPN_OPTS=${OPENVPN_OPTS}" --verb ${OPENVPN_LOGLEVEL:-3} "
+
 # shellcheck disable=SC2086
-exec openvpn ${TRANSMISSION_CONTROL_OPTS} ${OPENVPN_OPTS} --config "${CHOSEN_OPENVPN_CONFIG}"
+exec openvpn --config ${CHOSEN_OPENVPN_CONFIG} ${TRANSMISSION_CONTROL_OPTS} ${OPENVPN_OPTS}

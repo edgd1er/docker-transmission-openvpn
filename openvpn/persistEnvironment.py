@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import argparse
 import os
 
@@ -13,8 +15,9 @@ parser.add_argument(
 args = parser.parse_args()
 
 wanted_variables = {
-    'OPENVPN_PROVIDER',
     'DEBUG',
+    'OPENVPN_PROVIDER',
+    'OPENVPN_LOGLEVEL',
     'ENABLE_UFW',
     'PUID',
     'PGID',
