@@ -1,7 +1,9 @@
 #! /bin/bash
 
+set -e -u -o pipefail
+
 . /etc/transmission/environment-variables.sh
-source /etc/openvpn/utils.sh
+[[ -f /etc/openvpn/utils.sh ]] && source /etc/openvpn/utils.sh || true
 
 # If transmission-pre-stop.sh exists, run it
 if [[ -x /scripts/transmission-pre-stop.sh ]]
@@ -11,9 +13,13 @@ then
     echo "/scripts/transmission-pre-stop.sh returned $?"
 fi
 
-echo "Sending kill signal to transmission-daemon"
 PID=$(pidof transmission-daemon)
-kill "$PID"
+if [[ -n ${PID} ]]; then
+  kill "$PID"
+  echo "Sending kill signal to transmission-daemon"
+else
+  echo "No transmission-daemon to kill"
+fi
 
 # Give transmission-daemon some time to shut down
 TRANSMISSION_TIMEOUT_SEC=${TRANSMISSION_TIMEOUT_SEC:-5}
