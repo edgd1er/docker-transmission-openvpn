@@ -206,6 +206,7 @@ select_hostname() { #TODO return multiples
     echo ''
   else
     load=$(curl -sS ${nordvpn_api}/server/stats/${vpnserver} | jq .percent)
+    curl "${nordvpn_api}/v1/servers/recommendations?limit=1" | jq --raw-output ".[].hostname
     log "INFO: OVPN: Best server : ${vpnserver}, load: ${load//null/N\/A}"
   fi
 
