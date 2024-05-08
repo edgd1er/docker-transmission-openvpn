@@ -19,23 +19,23 @@ ARG verTC="v1.8.0"
 #hadolint ignore=DL3018,DL3008
 RUN apk --no-cache add curl jq && mkdir -p /opt/transmission-ui \
     && echo "Install Shift" \
-    && wget -qO- https://github.com/killemov/Shift/archive/master.tar.gz | tar xz -C /opt/transmission-ui \
+    && wget -O- https://github.com/killemov/Shift/archive/master.tar.gz | tar xz -C /opt/transmission-ui \
     && mv /opt/transmission-ui/Shift-master /opt/transmission-ui/shift
 RUN echo "Install Flood for Transmission" \
-    && wget -qO- https://github.com/johman10/flood-for-transmission/releases/download/latest/flood-for-transmission.tar.gz | tar xz -C /opt/transmission-ui
+    && wget -O- https://github.com/johman10/flood-for-transmission/releases/download/latest/flood-for-transmission.tar.gz | tar xz -C /opt/transmission-ui
 RUN echo "Install Combustion" \
-    && wget -qO- https://github.com/Secretmapper/combustion/archive/release.tar.gz | tar xz -C /opt/transmission-ui
+    && wget -O- https://github.com/Secretmapper/combustion/archive/release.tar.gz | tar xz -C /opt/transmission-ui
 RUN echo "Install kettu" \
-    && wget -qO- "https://github.com/endor/kettu/archive/master.tar.gz" | tar xz -C /opt/transmission-ui \
+    && wget -O- "https://github.com/endor/kettu/archive/master.tar.gz" | tar xz -C /opt/transmission-ui \
     && mv /opt/transmission-ui/kettu-master /opt/transmission-ui/kettu
 RUN echo "Install Transmission-Web-Control" \
     && sleep 10 \
     && mkdir -p /opt/transmission-ui/transmission-web-control/ \
     #&& curl -sL $(curl -s https://api.github.com/repos/ronggang/transmission-web-control/releases/latest | jq --raw-output '.tarball_url') | tar -C /opt/transmission-ui/transmission-web-control/ --strip-components=2 -xz \
-    && wget -q -O- "https://github.com/transmission-web-control/transmission-web-control/releases/download/${verWC}/dist.tar.gz" | tar -C /opt/transmission-ui/transmission-web-control/ --strip-components=2 -xz
+    && wget -O- "https://github.com/transmission-web-control/transmission-web-control/releases/download/${verWC}/dist.tar.gz" | tar -C /opt/transmission-ui/transmission-web-control/ --strip-components=2 -xz
 RUN echo "Install Transmissionic ${verTC}" \
-    && wget -qO- "https://github.com/6c65726f79/Transmissionic/releases/download/${verTC}/Transmissionic-webui-${verTC}.zip" | unzip -d /opt/transmission-ui/ - \
-    && mv /opt/transmission-ui/web /opt/transmission-ui/transmissionic
+    && wget -O- "https://github.com/6c65726f79/Transmissionic/releases/download/${verTC}/Transmissionic-webui-${verTC}.zip" | unzip -d /opt/transmission-ui/ -
+RUN mv /opt/transmission-ui/web /opt/transmission-ui/transmissionic
 RUN  rm -rf /tmp/* /var/tmp/* /var/lib/apt/lists/*
 
 FROM base
@@ -128,9 +128,9 @@ ENV OPENVPN_USERNAME=**None** \
     DROP_DEFAULT_ROUTE='' \
     WEBPROXY_ENABLED=false \
     WEBPROXY_PORT=8118 \
-    WEBPROXY_BIND_ADDRESS= \
-    WEBPROXY_USERNAME= \
-    WEBPROXY_PASSWORD= \
+    WEBPROXY_BIND_ADDRESS='' \
+    WEBPROXY_USERNAME='' \
+    WEBPROXY_PASSWORD='' \
     LOG_TO_STDOUT=false \
     HEALTH_CHECK_HOST=google.com \
     SELFHEAL=false
