@@ -29,7 +29,7 @@ build3: ## build container transmission v3
 
 build4: ## build container transmission v4
 		@echo "build image with transmission v4 tagged..."
-		@docker buildx build --progress auto --load -f Dockerfile --build-arg aptCacher=192.168.53.208 --build-arg LIBEVENT_VERSION=2.1.12-stable --build-arg TBT_VERSION=4.0.5 -t edgd1er/transmission-openvpn:tbt_v4 .
+		@docker buildx build --progress auto --load -f Dockerfile --build-arg aptCacher=192.168.53.208 --build-arg LIBEVENT_VERSION=2.1.12-stable --build-arg TBT_VERSION=4.0.6 -t edgd1er/transmission-openvpn:tbt_v4 .
 
 builddev: ## build container transmission dev
 		@echo "build image with dev versions ..."

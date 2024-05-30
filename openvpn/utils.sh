@@ -6,14 +6,27 @@ export DEBUG=${DEBUG:-"false"}
 
 #Functions
 log() {
-  #printf "${TIME_FORMAT} %b\n" "$*" >/dev/stderr
   printf "%b\n" "$*" >/dev/stderr
 }
 
 fatal_error() {
-  #printf "${TIME_FORMAT} \e[41mERROR:\033[0m %b\n" "$*" >&2
   printf "\e[41mERROR:\033[0m %b\n" "$*" >&2
   exit 1
+}
+
+getTransCreds() {
+  CREDS=""
+  #use secrets
+  if [[ -f /run/secrets/RPC_CREDS ]]; then
+    r=($(</run/secrets/RPC_CREDS))
+    CREDS="-n ${r[0]}:${r[1]}"
+    export TRANSMISSION_RPC_USERNAME=${r[0]}
+    export TRANSMISSION_RPC_PASSWORD=${r[1]}
+  #if env set
+  elif [[ -n ${TRANSMISSION_RPC_USERNAME:-''} ]]; then
+    CREDS="-n ${TRANSMISSION_RPC_USERNAME}:${TRANSMISSION_RPC_PASSWORD}"
+  fi
+  echo "${CREDS}"
 }
 
 getExtIp() {

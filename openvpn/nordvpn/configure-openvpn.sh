@@ -41,7 +41,7 @@ find /tmp -type f -iname "json_*" -mtime +1 -exec ls -al {} \; -delete 2>/dev/nu
 #store json between runs to prevent being blocked by api when testing
 for i in json_countries json_groups json_technologies; do
   if [[ -f /tmp/${i} ]]; then
-    log "Using cached values for ${i}"
+    log "INFO: OVPN: Using cached values for ${i}"
     declare "${i}=$(</tmp/${i})"
   else
     declare "${i}="
@@ -50,19 +50,19 @@ done
 
 #Nordvpn has a fetch limit, storing json to prevent hitting the limit.
 if [[ -z ${json_countries} ]]; then
-  log "Fetching countries from nordvpn"
+  log "INFO: OVPN:Fetching countries from nordvpn"
   json_countries=$(curl -sS ${nordvpn_api}/v1/servers/countries)
   echo ${json_countries} >/tmp/json_countries
 fi
 #groups used for NORDVPN_CATEGORY
 if [[ -z ${json_groups} ]]; then
-  log "Fetching groups from nordvpn"
+  log "INFO: OVPN: Fetching groups from nordvpn"
   json_groups=$(curl -sS  ${nordvpn_api}/v1/servers/groups)
   echo ${json_groups} >/tmp/json_groups
 fi
   #technologies (NORDVPN_PROTOCOL) not used as only openvpn_udp and openvpn_tcp are tested.
 if [[ -z ${json_technologies} ]]; then
-  log "Fetching technologies from nordvpn"
+  log "INFO: OVPN: Fetching technologies from nordvpn"
   json_technologies=$(curl -sS ${nordvpn_api}/v1/technologies)
   echo ${json_technologies} >/tmp/json_technologies
 fi
@@ -79,7 +79,7 @@ test1NoValues(){
   export NORDVPN_COUNTRY=''
   export NORDVPN_PROTOCOL=''
   export NORDVPN_CATEGORY=''
-  log "expected <your country code><NN>.nordvpn.com with openvpn_tcp"
+  log "TESTS: expected <your country code><NN>.nordvpn.com with openvpn_tcp"
   export NORDVPN_REG="[a-z]{2}[0-9]+.nordvpn.com"
 }
 
@@ -120,7 +120,7 @@ script_needs() {
 }
 
 script_init() {
-  log "Checking curl installation"
+  log "INFO: OVPN: Checking curl installation"
   script_needs curl
 }
 
@@ -136,10 +136,10 @@ country_filter() {
                           .id" | head -n 1)
   fi
   if [[ -n ${country_id:-''} ]]; then
-    log "Searching for country : ${country} (${country_id})"
+    log "INFO: OVPN: Searching for country : ${country} (${country_id})"
     echo "filters\[country_id\]=${country_id}&"
   else
-    log "Warning, empty or invalid NORDVPN_COUNTRY (value=${NORDVPN_COUNTRY}). Ignoring this parameter. Possible values are:${possible_country_codes[*]} or ${possible_country_names[*]}. Please check ${nordvpn_doc}"
+    log "Warning: OVPN: empty or invalid NORDVPN_COUNTRY (value=${NORDVPN_COUNTRY}). Ignoring this parameter. Possible values are:${possible_country_codes[*]} or ${possible_country_names[*]}. Please check ${nordvpn_doc}"
   fi
 }
 
@@ -155,10 +155,10 @@ group_filter() {
                           .identifier" | head -n 1)
   fi
   if [[ -n ${identifier} ]]; then
-    log "Searching for group: ${identifier}"
+    log "INFO: OVPN: Searching for group: ${identifier}"
     echo "filters\[servers_groups\]\[identifier\]=${identifier}&"
   else
-    log "Warning, empty or invalid NORDVPN_CATEGORY (value=${NORDVPN_CATEGORY}). ignoring this parameter. Possible values are: ${possible_categories[*]}. Please check ${nordvpn_doc}"
+    log "Warning: OVPN: empty or invalid NORDVPN_CATEGORY (value=${NORDVPN_CATEGORY}). ignoring this parameter. Possible values are: ${possible_categories[*]}. Please check ${nordvpn_doc}"
   fi
 }
 
@@ -172,10 +172,10 @@ technology_filter() {
   fi
 
   if [[ -n ${identifier} ]]; then
-    log "Searching for technology: ${identifier}"
+    log "INFO: OVPN: Searching for technology: ${identifier}"
     echo "filters\[servers_technologies\]\[identifier\]=${identifier}&"
   else
-    log "Empty or invalid NORDVPN_PROTOCOL (value=${NORDVPN_PROTOCOL}), expecting tcp or udp. setting to udp. Please read ${nordvpn_doc}"
+    log "INFO: OVPN: Empty or invalid NORDVPN_PROTOCOL (value=${NORDVPN_PROTOCOL}), expecting tcp or udp. setting to udp. Please read ${nordvpn_doc}"
     echo "filters\[servers_technologies\]\[identifier\]=openvpn_udp&"
     export NORDVPN_PROTOCOL=udp
   fi
@@ -184,7 +184,7 @@ technology_filter() {
 select_hostname() { #TODO return multiples
   local filters hostname
 
-  log "Selecting the best server..."
+  log "INFO: OVPN: Selecting the best server..."
   filters+="$(country_filter ${nordvpn_api})"
   filters+="$(group_filter ${nordvpn_api})"
   filters+="$(technology_filter)"
@@ -201,16 +201,13 @@ select_hostname() { #TODO return multiples
     sleep 5
   done
   if [[ -z ${vpnserver} ]]; then
-    log "Warning, unable to find a server with the specified parameters, please review your parameters, NORDVPN_COUNTRY=${NORDVPN_COUNTRY}, NORDVPN_CATEGORY=${NORDVPN_CATEGORY}, NORDVPN_PROTOCOL=${NORDVPN_PROTOCOL}"
+    log "Warning: OVPN: unable to find a server with the specified parameters, please review your parameters, NORDVPN_COUNTRY=${NORDVPN_COUNTRY}, NORDVPN_CATEGORY=${NORDVPN_CATEGORY}, NORDVPN_PROTOCOL=${NORDVPN_PROTOCOL}"
+    vpnserver=$(curl -s "${nordvpn_api}/v1/servers/recommendations?limit=1" | jq --raw-output ".[].hostname")
     #hostname=$(curl "${nordvpn_api}/v1/servers/recommendations?limit=1" | jq --raw-output ".[].hostname")
     echo ''
   else
-    load=$(curl -sS ${nordvpn_api}/server/stats/${vpnserver} | jq .percent)
-    curl "${nordvpn_api}/v1/servers/recommendations?limit=1" | jq --raw-output ".[].hostname
-    log "INFO: OVPN: Best server : ${vpnserver}, load: ${load//null/N\/A}"
+    echo ${vpnserver}
   fi
-
-  echo ${vpnserver}
 }
 download_hostname() {
   NORDVPN_PROTOCOL=${NORDVPN_PROTOCOL:-"tcp"}
@@ -236,7 +233,7 @@ download_hostname() {
   outfile="-o "${VPN_PROVIDER_HOME}/${ovpnName}
   #when testing script outside of container, display config instead of writing it.
   if [ ! -w ${VPN_PROVIDER_HOME} ]; then
-    log "${VPN_PROVIDER_HOME} is not writable, outputing ${ovpnName} to stdout"
+    log "INFO: OVPN: ${VPN_PROVIDER_HOME} is not writable, outputing ${ovpnName} to stdout"
     outfile=""
   fi
   [[ "false" == ${DEBUG} ]] && FL="-sS" || FL="-v"
@@ -248,7 +245,7 @@ checkDNS() {
   if [[ ${res} == "" ]]; then
     fatal_error "ERROR: OVPN: no dns resolution, dns server unavailable or network problem"
   else
-    log "DNS: resolution ok"
+    log "INFO: OVPN: DNS: resolution ok"
   fi
   ret=$(ping -c2 ${nordvpn_dl} 2>&1)||true
   if [[ $ret =~ \ 0%\ packet\ loss ]]; then
@@ -265,7 +262,7 @@ script_init
 checkDNS
 
 if [[ -d ${VPN_PROVIDER_HOME} ]]; then
-  log "Removing existing configs in ${VPN_PROVIDER_HOME}"
+  log "INFO: OVPN: Removing existing configs in ${VPN_PROVIDER_HOME}"
   find ${VPN_PROVIDER_HOME} -type f ! -name '*.sh' -delete
 fi
 
@@ -274,8 +271,7 @@ fi
 NORDVPN_SERVER=${NORDVPN_SERVER:-""}
 if [[ -n ${NORDVPN_SERVER} ]]; then
   selected=${NORDVPN_SERVER}
-  load=$(curl -sS ${nordvpn_api}/server/stats/${NORDVPN_SERVER} | jq .percent 2>/dev/null)
-  log "INFO: OVPN: server : ${NORDVPN_SERVER}, load: ${load//null/N\/A}"
+  log "INFO: OVPN: server : ${NORDVPN_SERVER}"
 fi
 
 if [[ -n ${NORDVPN_TESTS} ]]; then
@@ -307,14 +303,13 @@ fi
 NORDVPN_SERVER=${NORDVPN_SERVER:-""}
 if [[ -n ${NORDVPN_SERVER} ]]; then
   selected=${NORDVPN_SERVER}
-  load=$(curl -sS ${nordvpn_api}/server/stats/${NORDVPN_SERVER} | jq .percent 2>/dev/null)
-  log "INFO: OVPN: server : ${NORDVPN_SERVER}, load: ${load:-N/A}"
+  log "INFO: OVPN: server : ${NORDVPN_SERVER}"
 else
-  log "Checking NORDPVN API responses"
+  log "INFO: OVPN: Checking NORDPVN API responses"
   for po in json_countries json_groups json_technologies; do
     if [[ $(echo ${!po} | grep -c "<html>") -gt 0 ]]; then
       msg=$(echo ${!po} | grep -oP "(?<=title>)[^<]+")
-      echo "ERROR, unexpected html content from NORDVPN servers: ${msg}"
+      log "ERROR, unexpected html content from NORDVPN servers: ${msg}"
       sleep 30
       exit
     fi
@@ -338,7 +333,7 @@ log "OVPN: NORDVPN: selected: ${selected}, VPN_PROVIDER_HOME: ${VPN_PROVIDER_HOM
 if [[ -f ${VPN_PROVIDER_HOME}/${selected}.ovpn ]]; then
   #add data ciphers: DEPRECATED OPTION: --cipher set to 'AES-256-CBC' but missing in --data-ciphers (AES-256-GCM:AES-128-GCM).
   if [[ 0 -le $(grep -c "cipher AES-256-GCM" ${VPN_PROVIDER_HOME}/${selected}.ovpn) ]] && [[ 0 -eq $(grep -c "data-ciphers AES-256-GCM" ${VPN_PROVIDER_HOME}/${selected}.ovpn) ]]; then
-      sed -i "s/cipher AES-256-CBC/cipher AES-256-GCM\ndata-ciphers AES-256-GCM:AES-128-GCM/" ${VPN_PROVIDER_HOME}/${selected}.ovpn
+      sed -i "s/cipher AES-256-CBC/cipher AES-256-GCM\ndata-ciphers AES-256-CBC:AES-256-GCM:AES-128-GCM/" ${VPN_PROVIDER_HOME}/${selected}.ovpn
   fi
 fi
 #handle tests results.

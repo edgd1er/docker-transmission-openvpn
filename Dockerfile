@@ -41,7 +41,7 @@ RUN  rm -rf /tmp/* /var/tmp/* /var/lib/apt/lists/*
 FROM base
 
 ARG DEBIAN_FRONTEND=noninteractive
-ARG TBT_VERSION=4.0.5
+ARG TBT_VERSION=4.0.6
 ARG TARGETPLATFORM
 
 VOLUME /data
@@ -49,7 +49,7 @@ VOLUME /config
 
 COPY --from=TransmissionUIs /opt/transmission-ui /opt/transmission-ui
 #COPY --from=devbase /var/tmp/*.deb /var/tmp/
-COPY out/*.deb /var/tmp/
+COPY out/transmission_${TBT_VERSION}*.deb /var/tmp/
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -78,14 +78,13 @@ RUN echo "cpu: ${TARGETPLATFORM}" && \
     && usermod -G users abc \
     && echo "alias checkip='curl -sm 10 \"https://zx2c4.com/ip\"'" | tee -a ~/.bashrc \
     && echo "alias checkhttp='curl -sm 10 -x http://\${HOSTNAME}:\${WEBPROXY_PORT:-8888} \"https://ifconfig.me/ip\";echo'" | tee -a ~/.bashrc \
-    && echo "alias checkvpn='curl -sm 10 \"https://api.nordvpn.com/vpn/check/full\" | jq -r .status'" | tee -a ~/.bashrc \
-    && echo "alias getcheck='curl -sm 10 \"https://api.nordvpn.com/vpn/check/full\" | jq . '" | tee -a ~/.bashrc \
     && echo "alias gettrans='grep bind /config/transmission-home/settings.json'|jq ." | tee -a ~/.bashrc \
     && echo "alias getpriv='grep -vP \"(^$|^#)\" /etc/privoxy/config'" | tee -a ~/.bashrc \
     && echo "alias dltest='curl http://ipv4.bouygues.testdebit.info/10M.iso -o /dev/null'" | tee -a ~/.bashrc \
     && echo "alias ll='ls -al '" | tee -a ~/.bashrc \
     && echo "alias modalias='vim ~/.bashrc'" | tee -a ~/.bashrc \
-    && echo "alias salias='source ~/.bashrc'" | tee -a ~/.bashrc
+    && echo "alias salias='source ~/.bashrc'" | tee -a ~/.bashrc \
+    && rm -rf /tmp/* /var/tmp/* /var/lib/apt/lists/* /tmp/*
 
 
 # Add configuration and scripts

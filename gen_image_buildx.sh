@@ -16,7 +16,7 @@ CACHE=""
 #WHERE="--load"
 #push
 WHERE="--push"
-TBT_VERSION=4.0.5
+TBT_VERSION=4.0.6
 #TBT_VERSION=dev
 #exit on error
 set -xe
@@ -53,7 +53,7 @@ getPlateforms() {
   else
     PTF=linux/amd64
     if [[ $isMultiArch -gt 0 ]] && [[ ${WHERE} != "--load" ]]; then
-      PTF=linux/arm,linux/arm64,linux/amd64
+      PTF+=,linux/arm64/v8,linux/arm/v7 #,linux/arm/v6
       enableMultiArch >/dev/null
     fi
   fi
