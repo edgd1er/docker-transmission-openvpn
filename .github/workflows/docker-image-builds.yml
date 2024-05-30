@@ -35,7 +35,7 @@ jobs:
     with:
       build-context: '.'
       event_version: "2.1.12-stable"
-      tbt_version: 4.0.5
+      tbt_version: 4.0.6
       version: 4
       tags: edgd1er/transmission-openvpn:latest,edgd1er/transmission-openvpn:tbt_v4
     secrets: inherit

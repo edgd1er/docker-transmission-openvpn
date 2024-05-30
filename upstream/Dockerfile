@@ -1,7 +1,7 @@
 FROM ubuntu:22.04
 
 ARG DEBIAN_FRONTEND=noninteractive
-ARG TBT_VERSION=4.0.5
+ARG TBT_VERSION=4.0.6
 
 RUN set -ex; \
     apt-get update; \
