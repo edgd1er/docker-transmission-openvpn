@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 #vars
-CPSE=docker-compose-dev.yml
+CPSE=compose-dev.yml
 PROXY_HOST="localhost"
 SOCK_PORT=""                                  #2080 # proxy socks
 TRANS_PORT=$(grep -oP "9[^:]+(?=:9)" ${CPSE}) # trans port

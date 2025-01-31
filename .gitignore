@@ -1,7 +1,8 @@
 .idea/
 docker-compose-*.yml
 openvpn_creds
-docker-compose.yml
-docker-compose-dev.yml
+compose.yml
+compose-dev.yml
 your/
 /docker-transmission-openvpn.iml
+/transmission_web_control_1.6.1.u1/

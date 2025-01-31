@@ -8,7 +8,7 @@ on:
       - dev
     paths-ignore:
       - README.md
-      - docker-compose.yml
+      - ../../compose.yml
       - mkdocs.yml
       - .github/**
       - docs/*

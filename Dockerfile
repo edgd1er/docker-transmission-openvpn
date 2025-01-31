@@ -29,19 +29,20 @@ RUN echo "Install kettu" \
     && wget -O- "https://github.com/endor/kettu/archive/master.tar.gz" | tar xz -C /opt/transmission-ui \
     && mv /opt/transmission-ui/kettu-master /opt/transmission-ui/kettu
 RUN echo "Install Transmission-Web-Control" \
-    && sleep 10 \
-    && mkdir -p /opt/transmission-ui/transmission-web-control/ \
-    #&& curl -sL $(curl -s https://api.github.com/repos/ronggang/transmission-web-control/releases/latest | jq --raw-output '.tarball_url') | tar -C /opt/transmission-ui/transmission-web-control/ --strip-components=2 -xz \
-    && wget -O- "https://github.com/transmission-web-control/transmission-web-control/releases/download/${verWC}/dist.tar.gz" | tar -C /opt/transmission-ui/transmission-web-control/ --strip-components=2 -xz
+    #&& sleep 10 \
+    #&& mkdir -p /opt/transmission-ui/transmission-web-control/ \
+    #&& wget -O- "https://github.com/transmission-web-control/transmission-web-control/releases/download/${verWC}/dist.tar.gz" | tar -C /opt/transmission-ui/transmission-web-control/ --strip-components=2 -xz
 RUN echo "Install Transmissionic ${verTC}" \
     && wget -O- "https://github.com/6c65726f79/Transmissionic/releases/download/${verTC}/Transmissionic-webui-${verTC}.zip" | unzip -d /opt/transmission-ui/ -
 RUN mv /opt/transmission-ui/web /opt/transmission-ui/transmissionic
 RUN  rm -rf /tmp/* /var/tmp/* /var/lib/apt/lists/*
 
+#copied transmission web control from local archive
+ADD transmission_web_control_1.6.33.tar.xz /opt/transmission-ui/
+
 FROM base
 
 ARG DEBIAN_FRONTEND=noninteractive
-ARG TBT_VERSION=4.0.6
 ARG TARGETPLATFORM
 ARG TBT_VERSION=4.0.6
 
@@ -86,17 +87,17 @@ RUN echo "cpu: ${TARGETPLATFORM}" && \
       && debfile=$(compgen -G /var/tmp/transmission_${TBT_VERSION}*_${ARCH}.deb) ;\
       if [[ -n "${debfile}" ]]; then \
       echo "Installing transmission ${TBT_VERSION}: ${debfile}" && dpkg -i ${debfile} && dpkg -c ${debfile} \
-      && ln -s /usr/local/share/transmission/public_html/images /opt/transmission-ui/transmission-web-control/ \
-      && ln -s /usr/local/share/transmission/public_html/transmission-app.js /opt/transmission-ui/transmission-web-control/transmission-app.js \
-      && ln -s /usr/local/share/transmission/public_html/index.html /opt/transmission-ui/transmission-web-control/index.original.html ;\
+      && ln -fs /usr/local/share/transmission/public_html/images /opt/transmission-ui/transmission-web-control/ \
+      && ln -fs /usr/local/share/transmission/public_html/transmission-app.js /opt/transmission-ui/transmission-web-control/transmission-app.js \
+      && ln -fs /usr/local/share/transmission/public_html/index.html /opt/transmission-ui/transmission-web-control/index.original.html ;\
       else echo "No /var/tmp/transmission_${TBT_VERSION}*_${ARCH}.deb. Exiting" ; exit ; fi ; \
     else echo "Installing transmission from repository" ;\
     export TBT_VERSION=3.00 \
     && apt-get install -y --no-install-recommends transmission-daemon transmission-cli\
-    && ln -s /usr/share/transmission/web/style /opt/transmission-ui/transmission-web-control \
-    && ln -s /usr/share/transmission/web/images /opt/transmission-ui/transmission-web-control \
-    && ln -s /usr/share/transmission/web/javascript /opt/transmission-ui/transmission-web-control \
-    && ln -s /usr/share/transmission/web/index.html /opt/transmission-ui/transmission-web-control/index.original.html \
+    && ln -fs /usr/share/transmission/web/style /opt/transmission-ui/transmission-web-control \
+    && ln -fs /usr/share/transmission/web/images /opt/transmission-ui/transmission-web-control \
+    && ln -fs /usr/share/transmission/web/javascript /opt/transmission-ui/transmission-web-control \
+    && ln -fs /usr/share/transmission/web/index.html /opt/transmission-ui/transmission-web-control/index.original.html \
     ; fi \
     && groupmod -g 1000 users \
     && useradd -u 911 -U -d /config -s /bin/false abc \

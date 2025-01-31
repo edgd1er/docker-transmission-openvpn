@@ -58,11 +58,22 @@ changePrivoxyListenAddress() {
 }
 
 getLatestTransmissionWebUI() {
-  newVer=$(curl -s "https://api.github.com/repos/transmission-web-control/transmission-web-control/releases/latest" | jq -r .tag_name )
+  newVer=$(curl -s "https://api.github.com/repos/transmission-web-control/transmission-web-control/releases/latest" | jq -r .tag_name)
   wget --no-cache -qO- "https://github.com/transmission-web-control/transmission-web-control/releases/download/${newVer}/dist.tar.gz" | tar -C /opt/transmission-ui/transmission-web-control/ --strip-components=2 -xz
 }
 
 #Nordvpn api tools
-getIdFromCountryCode(){
+getIdFromCountryCode() {
   cat /tmp/json_countries | jq --arg c ${1} '.[]|select(.code|test($c;"i")).id'
+}
+
+getStatusFromNordvpn() {
+  nvpn_status="$(curl -s 'https://nordvpn.com/wp-admin/admin-ajax.php?action=get_user_info_data')"
+  status=$(echo $nvpn_status | jq -r .status)
+  myip=$(echo $nvpn_status | jq -r .host.ip_address)
+  if [[ "false" == ${status} ]]; then
+    log "WARNING: not protected, status is ${status}, ip ${myip}"
+    return 1
+  fi
+  return 0
 }
